@@ -1,0 +1,21 @@
+[RS485Devices]
+  LGAircon: LGAircon
+
+[LGAircon]
+  server: 192.168.0.100
+  port: 8899
+  device: aircon
+
+[MQTT]
+  anonymous: False
+  server: 192.168.0.100
+  port: 1883
+  username: mqtt_user
+  password: mqtt_password
+
+[advanced]
+  INIT_TEMP: 22
+  SCAN_INTERVAL: 5
+  SCANNING_INTERVAL: 0.8
+  DEFAULT_SPEED: auto
+  LOGLEVEL: info
