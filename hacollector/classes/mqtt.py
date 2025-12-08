@@ -105,6 +105,11 @@ class Discovery:
                     self.sub.append((ha_payload[f'{MQTT_TEMP}_{MQTT_CMD_T}'], 0))
                     self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
                     self.sub.append((ha_payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'], 0))
+                    
+                    # Log discovery attempt
+                    color_log = ColorLog()
+                    color_log.log(f"Discovery: Publishing {room_name} to {ha_topic}", Color.Green, ColorLog.Level.INFO)
+                    
                     if remove:
                         self.pub.append({ha_topic: ''})
                     else:
