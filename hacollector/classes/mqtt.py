@@ -211,12 +211,20 @@ class MqttHandler:
                 self.mqtt_client.subscribe(self.subscribe_list)
             for ha in self.publish_list:
                 for topic, payload in ha.items():
-                    # Log real sending timing
-                    if payload: # Only log if not empty (empty is remove)
+                    if payload: # If adding/updating (payload exists)
+                        # 1. Force Clear (Nuclear Option for Zombie Entities)
+                        # Send empty payload first to force HA to remove old entity
+                        self.mqtt_client.publish(topic, "", retain=True, qos=1)
+                        time.sleep(0.2) # Wait a bit for HA to process removal
+
+                        # 2. Add New
                         ColorLog().log(f"Sending MQTT Discovery: {topic}", Color.Green, ColorLog.Level.INFO)
-                    
-                    self.mqtt_client.publish(topic, payload, retain=True, qos=1)
-                    time.sleep(0.5) # Prevent rate limiting (Increased to 0.5s)
+                        self.mqtt_client.publish(topic, payload, retain=True, qos=1)
+                        time.sleep(0.5) # Prevent rate limiting
+                    else:
+                        # Just remove
+                        self.mqtt_client.publish(topic, "", retain=True, qos=1)
+                        time.sleep(0.2)
 
         if self.start_discovery:
             self.start_discovery = False
