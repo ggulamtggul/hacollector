@@ -8,8 +8,7 @@ COPY hacollector.py /hacollector
 COPY classes/*.py /hacollector/classes/
 COPY config.py /hacollector
 COPY consts.py /hacollector
-COPY hacollector.conf /hacollector
-COPY .env /hacollector/
+COPY hacollector.conf.example /hacollector
 COPY run.sh /hacollector/
 COPY config.yaml /hacollector/
 
