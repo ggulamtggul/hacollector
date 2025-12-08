@@ -4,11 +4,11 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "0.86"
+SW_VERSION          = "0.90"  # 버전 업데이트
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - by Bongdang"
 
 # main service name
-SERVICE_NAME        = 'kocom' # Keeping this for now as it might be used in logging or config, but ideally should be changed if it's just for Kocom. But based on usage, it seems to be just a name.
+SERVICE_NAME        = 'hacollector' 
 
 # DEVICE naming
 DEVICE_AIRCON       = 'aircon'
@@ -16,6 +16,8 @@ DEVICE_AIRCON       = 'aircon'
 # payload values
 PAYLOAD_ON          = 'on'
 PAYLOAD_OFF         = 'off'
+PAYLOAD_ONLINE      = 'online'  # [추가]
+PAYLOAD_OFFLINE     = 'offline' # [추가]
 PAYLOAD_SET         = 'set'
 PAYLOAD_CHECK       = 'check'
 PAYLOAD_STATE       = 'state'
@@ -52,8 +54,9 @@ MQTT_VAL            = 'val'
 MQTT_PAYLOAD        = 'pl'
 MQTT_CMD_T          = 'cmd_t'
 MQTT_FAN_SPEED      = 'fan_speed'
+MQTT_AVAILABILITY   = 'availability' # [추가]
 
-MQTT_ICON_AIRCON    = ''
+MQTT_ICON_AIRCON    = 'mdi:air-conditioner' # 아이콘 기본값 설정
 
 PRIORITY_LOW        = 9
 PRIORITY_HIGH       = 0
@@ -61,7 +64,6 @@ PRIORITY_HIGH       = 0
 
 class CommType(Enum):
     SOCKET = 'socket'
-    # SERIAL = 'serial'
 
 
 class CommStatus(Enum):
@@ -104,7 +106,7 @@ class FanSpeed(Enum):
     HIGH    = PAYLOAD_HIGH
     AUTO    = PAYLOAD_AUTO
     SILENT  = PAYLOAD_SILENT
-    POWER   = PAYLOAD_POWER # Added POWER
+    POWER   = PAYLOAD_POWER
     OFF     = PAYLOAD_OFF
 
 

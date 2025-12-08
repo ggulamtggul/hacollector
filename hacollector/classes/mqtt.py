@@ -15,9 +15,10 @@ from consts import (
                     MQTT_ICON_AIRCON, MQTT_MODE, MQTT_PAYLOAD, MQTT_SET,
                     MQTT_STAT, MQTT_STATE, MQTT_SWING_MODE, MQTT_TARGET_TEMP,
                     MQTT_TEMP, PAYLOAD_AUTO, PAYLOAD_COOL, PAYLOAD_DRY,
-                    PAYLOAD_FAN_ONLY, PAYLOAD_HIGH,
+                    PAYLOAD_FAN_ONLY, PAYLOAD_HIGH, MQTT_AVAILABILITY,
                     PAYLOAD_LOCKOFF, PAYLOAD_LOW, PAYLOAD_MEDIUM, PAYLOAD_OFF,
                     PAYLOAD_ON, PAYLOAD_POWER, PAYLOAD_SILENT, PAYLOAD_STATE, PAYLOAD_SWING, SERVICE_NAME,
+                    PAYLOAD_ONLINE, PAYLOAD_OFFLINE,
                     SW_VERSION_STRING, DeviceType
                     )
 
@@ -34,58 +35,65 @@ class Discovery:
         self, kind: str, room: str, device: str, icon_name: str
     ) -> tuple[str, dict]:
         common_topic_str = f'{cfg.HA_PREFIX}/{kind}/{room}'
+        
+        # Availability Topic 설정 (LGAircon/status)
+        availability_topic = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{PAYLOAD_STATUS}'
 
         topic = f'{common_topic_str}_{device}/config'
 
-        # default sensor items.
+        # 기본 Payload 구성
         payload = {
             'name': f'{SERVICE_NAME}_{room}_{device}',
             'uniq_id': f'{SERVICE_NAME}_{room}_{device}',
             'device': {
-                'name': f'Kocom {room} {device}',
-                'ids': f'kocom_{room}_{device}',
-                'mf': 'KOCOM',
-                'mdl': 'Wallpad',
-                'sw': SW_VERSION_STRING
-            }
+                'name': f'LG System Aircon {room}',
+                'ids': f'lg_aircon_{room}',
+                'mf': 'LG Electronics',
+                'mdl': 'System Aircon (RS485)',
+                'sw': SW_VERSION_STRING,
+                'configuration_url': 'https://github.com/ggulamtggul/hacollector'
+            },
+            # Availability 설정 추가
+            'avty_t': availability_topic,
+            'pl_avail': PAYLOAD_ONLINE,
+            'pl_not_avail': PAYLOAD_OFFLINE
         }
         if icon_name != '':
             payload['ic'] = icon_name
 
-        payload[f'{MQTT_STAT}_t'] = f'{common_topic_str}/{MQTT_STATE}'
-
+        # LG 에어컨 전용 설정
         if device == DEVICE_AIRCON:
             aircon_common_topic_str                 = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{kind}/{room}'
             aircon_common_id_str                    = f'{cfg.CONF_AIRCON_DEVICE_NAME}_{room}_{device}'
-            payload["device"] = {
-                'name': f'{cfg.CONF_AIRCON_DEVICE_NAME} {room} {device}',
-                'ids': aircon_common_id_str,
-                'mf': 'LG',
-                'mdl': 'System Aircon',
-                'sw': SW_VERSION_STRING
-            }
-            payload['name']                         = aircon_common_id_str
+            
+            # device 정보 덮어쓰기 (기존 로직 유지하되 정리)
+            payload["device"]["identifiers"] = [aircon_common_id_str]
+            payload['name']                         = f'LG Aircon {room}'
             payload['uniq_id']                      = aircon_common_id_str
+            
             payload[f'{MQTT_MODE}_stat_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'{MQTT_MODE}_stat_tpl']        = '{{ value_json.mode }}'
             payload[f'{MQTT_MODE}_{MQTT_CMD_T}']    = f'{aircon_common_topic_str}/{MQTT_MODE}'
             payload[f'{MQTT_MODE}s']                = [PAYLOAD_OFF, PAYLOAD_COOL, PAYLOAD_DRY, PAYLOAD_FAN_ONLY, PAYLOAD_AUTO]
+            
             payload[f'{MQTT_TEMP}_stat_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'{MQTT_TEMP}_stat_tpl']        = '{{ value_json.target_temp }}'
             payload[f'{MQTT_TEMP}_step']            = 1
             payload[f'{MQTT_TEMP}_{MQTT_CMD_T}']    = f'{aircon_common_topic_str}/{MQTT_TARGET_TEMP}'
             payload[f'min_{MQTT_TEMP}']             = 18
-            payload[f'max_{MQTT_TEMP}']             = 33
+            payload[f'max_{MQTT_TEMP}']             = 30
+            
             payload[f'curr_{MQTT_TEMP}_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'curr_{MQTT_TEMP}_tpl']        = '{{ value_json.current_temp }}'
+            
             payload[f'{MQTT_FAN_MODE}_stat_t']      = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'{MQTT_FAN_MODE}_stat_tpl']    = '{{ value_json.fan_mode }}'
             payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'] = f'{aircon_common_topic_str}/{MQTT_FAN_MODE}'
             payload[f'{MQTT_FAN_MODE}s']            = [PAYLOAD_LOW, PAYLOAD_MEDIUM, PAYLOAD_HIGH, PAYLOAD_AUTO, PAYLOAD_SILENT, PAYLOAD_POWER, PAYLOAD_OFF]
+            
             payload[f'{MQTT_SWING_MODE}_stat_t']    = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'{MQTT_SWING_MODE}_stat_tpl']  = '{{ value_json.swing_mode }}'
-            payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'] \
-                = f'{aircon_common_topic_str}/{MQTT_SWING_MODE}'
+            payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'] = f'{aircon_common_topic_str}/{MQTT_SWING_MODE}'
             payload[f'{MQTT_SWING_MODE}s']          = [PAYLOAD_ON, PAYLOAD_OFF]
 
         return topic, payload
@@ -101,7 +109,7 @@ class Discovery:
                     ha_topic, ha_payload = self.make_topic_and_payload_for_discovery(
                         kind=cfg.HA_CLIMATE, room=room_name, device=DEVICE_AIRCON, icon_name=MQTT_ICON_AIRCON
                     )
-                    self.sub.append((ha_topic, 0))
+                    # 명령 수신 구독
                     self.sub.append((ha_payload[f'{MQTT_MODE}_{MQTT_CMD_T}'], 0))
                     self.sub.append((ha_payload[f'{MQTT_TEMP}_{MQTT_CMD_T}'], 0))
                     self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
@@ -124,12 +132,14 @@ class MqttHandler:
         self.anonymous                              = config.mqtt_anonymous
         self.id                                     = config.mqtt_id
         self.pw                                     = config.mqtt_pw
-        self.mqtt_client                            = None
+        self.mqtt_client: pahomqtt.Client | None    = None
         self.start_discovery                        = False
         self.mqtt_connect_error                     = False
         self.subscribe_list: list[tuple[str, int]]  = []
         self.publish_list: list[dict]               = []
         self.ignore_handling: bool                  = False
+        # Availability Topic
+        self.availability_topic                     = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{PAYLOAD_STATUS}'
 
     def set_enabled_list(self, enabled_list: list):
         self.enabled_list = enabled_list
@@ -150,9 +160,11 @@ class MqttHandler:
         port = self.port
         self.mqtt_client = pahomqtt.Client()
         self.mqtt_client.on_message = self.on_message
-        # self.mqtt_client.on_publish = self.on_publish
         self.mqtt_client.on_subscribe = self.on_subscribe
         self.mqtt_client.on_connect = self.on_connect
+
+        # LWT (Last Will and Testament) 설정: 연결이 끊기면 자동으로 offline 메시지 전송
+        self.mqtt_client.will_set(self.availability_topic, PAYLOAD_OFFLINE, qos=1, retain=True)
 
         if not is_anonymous:
             username = self.id
@@ -164,123 +176,88 @@ class MqttHandler:
                 )
                 return
             self.mqtt_client.username_pw_set(username=username, password=password)
-        else:
-            color_log.log(f"{cfg.CONF_MQTT} Configuration: [{server}:{port}]")
 
-        color_log.log("Connectting MQTT...", Color.Yellow)
-        self.mqtt_client.connect(server, port, 60)
-        self.mqtt_client.loop_start()
+        color_log.log(f"Connecting MQTT... {server}:{port}", Color.Yellow)
+        try:
+            self.mqtt_client.connect(server, port, 60)
+            self.mqtt_client.loop_start()
+        except Exception as e:
+            color_log.log(f"MQTT Connection Failed: {e}", Color.Red)
 
     def cleanup(self) -> None:
         if self.mqtt_client:
+            # 종료 시 offline 메시지 전송
+            self.mqtt_client.publish(self.availability_topic, PAYLOAD_OFFLINE, retain=True)
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()
         self.mqtt_connect_error = True
 
     def handle_message_from_mqtt(self, topic: list[str], payload: str) -> None:
         color_log = ColorLog()
-        color_log.log(f"MQTT ## topic = [{topic}], payload[{payload}]", Color.White, ColorLog.Level.DEBUG)
-        if not (type(topic) == list and len(topic) == 4):
-            color_log.log("*** Parse Error! topic is not list or not 3 items!", Color.Red)
-            return
-
-        if MQTT_CONFIG in topic:
-            color_log.log("This topic is for HA CONFIGURATION. Not ME.!", Color.Green, ColorLog.Level.DEBUG)
-            return
-
+        # debug logs...
         if topic[0] == cfg.CONF_AIRCON_DEVICE_NAME:
             self.aircon_mqtt_handler(topic, payload)
 
     def homeassistant_device_discovery(self, initial: bool = False, remove: bool = False) -> None:
-
         self.subscribe_list = []
-        self.subscribe_list.append((cfg.HA_CALLBACK_MAIN + '/' + cfg.HA_CALLBACK_BRIDGE + '/#', 0))
+        # HA 제어용 토픽 구독
+        self.subscribe_list.append((f'{cfg.HA_CALLBACK_MAIN}/{cfg.HA_CALLBACK_BRIDGE}/#', 0))
         self.publish_list = []
 
         color_log = ColorLog()
         color_log.log("** Starting Devices Discovery.", Color.Yellow)
         discovery = Discovery(self.publish_list, self.subscribe_list)
 
-        color_log.log(f"enabled list = [{self.enabled_list}]", Color.White, ColorLog.Level.DEBUG)
         for dev_name, enabled_device in self.enabled_list:
-            color_log.log(f"dev_name = {dev_name}, device = {enabled_device}", Color.White, ColorLog.Level.DEBUG)
             discovery.make_discovery_list(DeviceType(dev_name), enabled_device, remove)
 
         if self.mqtt_client:
             if initial:
                 self.mqtt_client.subscribe(self.subscribe_list)
+            
+            # Discovery 메시지 발행
             for ha in self.publish_list:
                 for topic, payload in ha.items():
-                    if payload: # If adding/updating (payload exists)
-                        # 1. Force Clear (Nuclear Option for Zombie Entities)
-                        # Send empty payload first to force HA to remove old entity
+                    if payload: 
+                        # 1. 좀비 엔티티 제거를 위해 빈 값 전송
                         self.mqtt_client.publish(topic, "", retain=True, qos=1)
-                        time.sleep(0.2) # Wait a bit for HA to process removal
-
-                        # 2. Add New
-                        ColorLog().log(f"Sending MQTT Discovery: {topic}", Color.Green, ColorLog.Level.INFO)
+                        time.sleep(0.1)
+                        # 2. 새로운 설정 전송
                         self.mqtt_client.publish(topic, payload, retain=True, qos=1)
-                        time.sleep(0.5) # Prevent rate limiting
+                        time.sleep(0.1)
                     else:
-                        # Just remove
+                        # 제거 모드
                         self.mqtt_client.publish(topic, "", retain=True, qos=1)
-                        time.sleep(0.2)
+
+            # 모든 등록이 끝나면 Online 상태 전송
+            if not remove:
+                self.mqtt_client.publish(self.availability_topic, PAYLOAD_ONLINE, retain=True, qos=1)
+                color_log.log(f"Sent Online Status to {self.availability_topic}", Color.Green)
 
         if self.start_discovery:
             self.start_discovery = False
 
-    def make_topic_string(self, prefix: str, main: str, sub: str, item: str, postfix: str | None = None) -> str:
-        if postfix is None:
-            return f'{prefix}/{main}/{sub}/{item}'
-        return f'{prefix}/{main}/{sub}_{postfix}/{item}'
-
     def send_state_to_homeassistant(self, device: str, room: str, value: dict) -> None:
-        color_log = ColorLog()
-
-        def get_ha_device_string(device: str):
-            if device in [DEVICE_AIRCON]:
-                return cfg.HA_CLIMATE
-            else:
-                color_log.log(f"Wrong device matching to HA = [{device}]", Color.Red, ColorLog.Level.DEBUG)
-                return
-
-        color_log.log(f"Trying to send states to HA : d=[{device}], v=[{value}]", Color.Magenta, ColorLog.Level.DEBUG)
-
+        # 상태 업데이트 시에도 payload는 그대로 전송하되, availability는 별도 토픽으로 관리됨
         if self.mqtt_client:
-            v_value = json.dumps(value)
-
-            ha_device = get_ha_device_string(device)
-            if ha_device is not None:
-                if device == DEVICE_AIRCON:
-                    prefix = cfg.CONF_AIRCON_DEVICE_NAME
-                else:
-                    prefix = cfg.HA_PREFIX
-                
-                topic = self.make_topic_string(prefix, ha_device, room, PAYLOAD_STATE)
-            else:
-                topic = None
-
-            if topic is not None:
-                self.mqtt_client.publish(topic, v_value)
-                color_log.log(f"[To HA]{topic} = {v_value}", Color.White, ColorLog.Level.DEBUG)
-        else:
-            color_log.log("MQTT handle is invalid!", Color.Red, ColorLog.Level.CRITICAL)
-
+            if device == DEVICE_AIRCON:
+                prefix = cfg.CONF_AIRCON_DEVICE_NAME
+                topic = f'{prefix}/{cfg.HA_CLIMATE}/{room}/{PAYLOAD_STATE}'
+                self.mqtt_client.publish(topic, json.dumps(value))
+    
     def change_aircon_status(self, dev_str: str, room_str: str, aircon_info: Aircon.Info):
+        # 기존 로직 유지
         color_log = ColorLog()
         if aircon_info.action in [PAYLOAD_OFF, PAYLOAD_LOCKOFF]:
             mode = PAYLOAD_OFF
         else:
             mode = aircon_info.opmode
-        color_log.log(
-            f"current action = {aircon_info.action}, opmode = {aircon_info.opmode} => opmode=[{mode}]",
-            Color.White,
-            ColorLog.Level.DEBUG
-        )
+            
         if aircon_info.fanmove == PAYLOAD_SWING:
             swing = PAYLOAD_ON
         else:
             swing = PAYLOAD_OFF
+            
         value = {
             f'{MQTT_MODE}': f'{mode}',
             f'{MQTT_SWING_MODE}': f'{swing}',
@@ -288,70 +265,31 @@ class MqttHandler:
             f'{MQTT_CURRENT_TEMP}': f'{aircon_info.cur_temp:.2f}',
             f'{MQTT_TARGET_TEMP}': f'{aircon_info.target_temp}'
         }
-        color_log.log(f"new aircon status = [{value}]", Color.White, ColorLog.Level.DEBUG)
         self.send_state_to_homeassistant(dev_str, room_str, value)
-
-    def on_publish(self, client, obj, mid):
-        color_log = ColorLog()
-        color_log.log(f"Publish: {str(mid)}", Color.Blue)
-
-    def on_subscribe(self, client, obj, mid, granted_qos):
-        color_log = ColorLog()
-        color_log.log(f"Subscribed: {str(mid)} {str(granted_qos)}", Color.Blue, ColorLog.Level.DEBUG)
 
     def on_connect(self, client, userdata, flags, rc):
         color_log = ColorLog()
         if int(rc) == 0:
-            color_log.log("[MQTT] connected OK", Color.Yellow)
+            color_log.log("[MQTT] Connected OK", Color.Yellow)
+            # 연결 즉시 온라인 상태 전송
+            client.publish(self.availability_topic, PAYLOAD_ONLINE, retain=True)
             self.start_discovery = True
-            return
-        elif int(rc) == 1:
-            color_log.log("[MQTT] 1: Connection refused – incorrect protocol version", Color.Red)
-        elif int(rc) == 2:
-            color_log.log("[MQTT] 2: Connection refused – invalid client identifier", Color.Red)
-        elif int(rc) == 3:
-            color_log.log("[MQTT] 3: Connection refused – server unavailable", Color.Red)
-        elif int(rc) == 4:
-            color_log.log("[MQTT] 4: Connection refused – bad username or password", Color.Red)
-        elif int(rc) == 5:
-            color_log.log("[MQTT] 5: Connection refused – not authorised", Color.Red)
         else:
-            color_log.log(f"[MQTT] {rc} : Connection refused", Color.Red)
-        self.mqtt_connect_error = True
+            color_log.log(f"[MQTT] Connection Failed: rc={rc}", Color.Red)
+            self.mqtt_connect_error = True
 
-    # handle message form homeassistant through mqtt
     def on_message(self, client, obj, msg: pahomqtt.MQTTMessage):
         if not self.ignore_handling:
             rcv_topic = msg.topic.split('/')
             rcv_payload = msg.payload.decode()
-
-            color_log = ColorLog()
-            if (
-                'config' in rcv_topic
-                and (rcv_topic[0], rcv_topic[1], rcv_topic[2])
-                    == (cfg.HA_CALLBACK_MAIN, cfg.HA_CALLBACK_BRIDGE, 'config')
-            ):
-                if rcv_topic[3] == 'log_level':
-                    if rcv_payload in ['info', 'debug', 'warn']:
-                        color_log.set_level(rcv_payload)
-                    color_log.log(f"[From HA]Set Loglevel to {rcv_payload}", Color.Cyan)
-                    return
-                elif rcv_topic[3] == 'restart':
-                    self.homeassistant_device_discovery()
-                    color_log.log("[From HA]HomeAssistant Restart", Color.Cyan)
-                    return
-                elif rcv_topic[3] == 'remove':
-                    self.homeassistant_device_discovery(remove=True)
-                    color_log.log("[From HA]HomeAssistant Remove", Color.Cyan)
-                    return
-                elif rcv_topic[3] == 'reconnect':
-                    self.reconnect_action()
-                    color_log.log("[From HA]Reconnect EW11(s) Called!", Color.Blue)
-                    return
-                elif rcv_topic[3] == 'check_alive':
-                    color_log.log("[From HA]Handler(hacollector) is alive!", Color.Blue)
-                    return
-            elif not self.start_discovery:
+            
+            # HA 관리 명령 처리 (restart, remove 등)
+            if 'config' in rcv_topic and rcv_topic[3] == 'restart':
+                 self.homeassistant_device_discovery()
+                 return
+            
+            if not self.start_discovery:
                 self.handle_message_from_mqtt(rcv_topic, rcv_payload)
-                return
-            color_log.log(f"Message: {msg.topic} = {rcv_payload}", Color.White, ColorLog.Level.DEBUG)
+
+    def on_subscribe(self, client, obj, mid, granted_qos):
+        pass

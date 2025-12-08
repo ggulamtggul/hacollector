@@ -16,7 +16,6 @@ from consts import DEVICE_AIRCON, SW_VERSION_STRING
 
 async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     root_dir = pathlib.Path.cwd()
-
     color_log: ColorLog
 
     # 로그 준비
@@ -37,7 +36,7 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
 
     app_config = MainConfig()
     if not app_config.read_config_file(config):
-        color_log.log("haclooector Configuration is invalid!", Color.Red)
+        color_log.log("Configuration is invalid!", Color.Red)
         sys.exit(1)
 
     # .env 로드 및 로그레벨 반영
@@ -45,7 +44,7 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     app_config.load_env_values()
     color_log.set_level(app_config.log_level)
 
-    # ✅ LG 에어컨만 사용
+    # 핸들러 초기화
     aircon = LGACPacketHandler(app_config)
     mqtt = MqttHandler(app_config)
 
@@ -55,6 +54,7 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     def prepare_reconnect():
         mqtt.set_ignore_handling()
         close_all_devices_sockets()
+        mqtt.cleanup()  # MQTT 종료 처리 추가
         for task in asyncio.all_tasks(loop):
             task.cancel()
 
@@ -63,39 +63,32 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
         f"[{app_config.aircon_server}:{app_config.aircon_port}]"
     )
 
-    # 콜백 연결 (Kocom 제거)
+    # 콜백 연결
     aircon.set_notify_function(mqtt.change_aircon_status)
     mqtt.set_aircon_mqtt_handler(aircon.handle_aircon_mqtt_message)
     mqtt.set_reconnect_action(prepare_reconnect)
 
-    # ✅ 허브 생성 (Kocom/Wallpad 없이)
-    #   Hub 시그니처가 (aircon_handler, mqtt_handler) 형태
+    # 허브 생성
     hub = Hub(aircon, mqtt)
-
-    # 사용 장치 등록: 에어컨만
     hub.add_devices([DEVICE_AIRCON])
 
-    # HA Discovery용 enabled 리스트: 에어컨만
+    # HA Discovery용 리스트 설정
     enabled_list = []
     enabled_list.extend(aircon.enabled_device_list)
     mqtt.set_enabled_list(enabled_list)
 
     color_log.log("Now entering main loop!", Color.Green, ColorLog.Level.DEBUG)
 
-    # MQTT 연결 + ✅ 강제 1회 디스커버리 킥 (on_connect 타이밍 이슈 대비)
     try:
         mqtt.connect_mqtt()
+        # 연결 대기 후 Discovery 수행
         await asyncio.sleep(1.0)
         mqtt.homeassistant_device_discovery(initial=True)
     except Exception as e:
-        color_log.log(
-            f"Error connecting MQTT Server. Check MQTT configuration!({e})",
-            Color.Red,
-            ColorLog.Level.CRITICAL
-        )
+        color_log.log(f"Error connecting MQTT Server: {e}", Color.Red, ColorLog.Level.CRITICAL)
         sys.exit(1)
 
-    # 에어컨 쓰기 루프 + 주기 스캔만 동작
+    # 메인 태스크 실행
     tasks = asyncio.gather(
         aircon.async_lgac_main_write_loop(),
         hub.async_scan_thread()
@@ -103,15 +96,14 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     try:
         await tasks
     except asyncio.CancelledError:
-        color_log.log("Restart revoked by HomeAssistant Web Service.")
+        color_log.log("Tasks Cancelled (Restarting or Stopping).", Color.Yellow)
         pass
+    except Exception as e:
+        color_log.log(f"Critical Error in Main Loop: {e}", Color.Red)
 
-    color_log.log("========= END loop(Will not show!) ========", Color.Red, ColorLog.Level.DEBUG)
-    color_log.log("End of Program.")
-    loop.stop()
+    color_log.log("End of Program Session.", Color.Blue)
 
 
-# entrypoint: 에러/재시작 루프
 if __name__ == '__main__':
     loop: asyncio.AbstractEventLoop
     first_run: bool = True
@@ -121,9 +113,13 @@ if __name__ == '__main__':
             loop.run_until_complete(main(loop, first_run))
             loop.close()
             first_run = False
+            
+            # 재시작 전 대기
+            import time
+            time.sleep(2)
+            
             color_log = ColorLog()
-            color_log.log("Exit from main loop. Restarting!", Color.Blue)
+            color_log.log("Restarting main loop...", Color.Blue)
         except KeyboardInterrupt:
-            print("User send Ctrl-C. so, Exiting...")
-            sys.exit(1)
-        print("* Maybe Called by HA for reconnect EW11 devices. so, Restarting.*")
+            print("\nUser Stopped Program.")
+            sys.exit(0)
