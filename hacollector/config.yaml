@@ -21,13 +21,13 @@ options:
   log_level: "info"
 schema:
   lg_server_ip: str
-  lg_server_port: port
+  lg_server_port: int
   mqtt_server: str
-  mqtt_port: port
+  mqtt_port: int
   mqtt_username: str
   mqtt_password: str
   rooms:
     - str
-  log_level: list(debug, info, warn)
+  log_level: str
 map:
   - config:rw
