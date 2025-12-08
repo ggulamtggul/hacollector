@@ -107,10 +107,6 @@ class Discovery:
                     self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
                     self.sub.append((ha_payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'], 0))
                     
-                    # Log discovery attempt
-                    color_log = ColorLog()
-                    color_log.log(f"Discovery: Publishing {room_name} to {ha_topic}", Color.Green, ColorLog.Level.INFO)
-                    
                     if remove:
                         self.pub.append({ha_topic: ''})
                     else:
@@ -215,8 +211,12 @@ class MqttHandler:
                 self.mqtt_client.subscribe(self.subscribe_list)
             for ha in self.publish_list:
                 for topic, payload in ha.items():
+                    # Log real sending timing
+                    if payload: # Only log if not empty (empty is remove)
+                        ColorLog().log(f"Sending MQTT Discovery: {topic}", Color.Green, ColorLog.Level.INFO)
+                    
                     self.mqtt_client.publish(topic, payload, retain=True)
-                    time.sleep(0.2) # Prevent rate limiting
+                    time.sleep(0.5) # Prevent rate limiting (Increased to 0.5s)
 
         if self.start_discovery:
             self.start_discovery = False
