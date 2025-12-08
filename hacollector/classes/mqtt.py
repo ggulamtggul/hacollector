@@ -215,7 +215,7 @@ class MqttHandler:
                     if payload: # Only log if not empty (empty is remove)
                         ColorLog().log(f"Sending MQTT Discovery: {topic}", Color.Green, ColorLog.Level.INFO)
                     
-                    self.mqtt_client.publish(topic, payload, retain=True)
+                    self.mqtt_client.publish(topic, payload, retain=True, qos=1)
                     time.sleep(0.5) # Prevent rate limiting (Increased to 0.5s)
 
         if self.start_discovery:
