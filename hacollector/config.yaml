@@ -1,8 +1,10 @@
 name: "HA Collector"
 version: "0.87"
+slug: "hacollector"
 description: "LG System Aircon (RS485) Collector"
 url: "https://github.com/ggulamtggul/hacollector"
 startup: application
+init: false
 arch:
   - aarch64
   - amd64
