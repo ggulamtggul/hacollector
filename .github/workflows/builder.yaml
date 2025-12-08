@@ -13,26 +13,8 @@ on:
       - main
 
 jobs:
-  init:
-    runs-on: ubuntu-latest
-    name: Initialize builds
-    outputs:
-      changed_addons: ${{ steps.changed_addons.outputs.addons }}
-      changed_files: ${{ steps.changed_addons.outputs.files }}
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
-
-      - name: Get changed files
-        id: changed_addons
-        uses: home-assistant/actions/helpers/changed_files@master
-        with:
-          files: ${{ env.MONITORED_FILES }}
-
   build:
-    needs: init
     runs-on: ubuntu-latest
-    if: needs.init.outputs.changed_addons != '[]'
     name: Build ${{ matrix.arch }} ${{ matrix.addon }}
     permissions:
       contents: read
@@ -40,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
+        addon: ["hacollector"]
         arch: [aarch64, amd64, armhf, armv7]
 
     steps:
