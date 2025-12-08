@@ -85,7 +85,7 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     # MQTT 연결 + ✅ 강제 1회 디스커버리 킥 (on_connect 타이밍 이슈 대비)
     try:
         mqtt.connect_mqtt()
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(1.0)
         mqtt.homeassistant_device_discovery(initial=True)
     except Exception as e:
         color_log.log(

@@ -216,7 +216,7 @@ class MqttHandler:
             for ha in self.publish_list:
                 for topic, payload in ha.items():
                     self.mqtt_client.publish(topic, payload, retain=True)
-                    time.sleep(0.05) # Prevent rate limiting
+                    time.sleep(0.2) # Prevent rate limiting
 
         if self.start_discovery:
             self.start_discovery = False
