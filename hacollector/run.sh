@@ -14,7 +14,8 @@ MQTT_PW=$(jq --raw-output '.mqtt_password' $CONFIG_PATH)
 LOG_LEVEL=$(jq --raw-output '.log_level' $CONFIG_PATH)
 
 # Join rooms with :
-ROOMS=$(jq --raw-output '.rooms | join(":")' $CONFIG_PATH)
+# Join rooms with : and replace spaces with underscores
+ROOMS=$(jq --raw-output '.rooms | map(gsub(" "; "_")) | join(":")' $CONFIG_PATH)
 
 echo "Generating hacollector.conf..."
 cat <<EOF > /hacollector/hacollector.conf
