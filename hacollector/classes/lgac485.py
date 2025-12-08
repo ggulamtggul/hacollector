@@ -223,13 +223,14 @@ class LGACPacket:
 
 
 class LGACPacketHandler:
-    SYSTEM_ROOM_AIRCON_REV      = {v: k for k, v in cfg.SYSTEM_ROOM_AIRCON.items()}
-
     def __init__(self, config: MainConfig | None = None) -> None:
         self.name                       = config.aircon_devicename if config is not None else 'TestAircon'
         self.enabled_device_list: list  = []
         self.aircon: list               = []
         self.type                       = None
+        # Initialize reverse mapping here to capture runtime config updates
+        self.system_room_aircon_rev = {v: k for k, v in cfg.SYSTEM_ROOM_AIRCON.items()}
+        
         if config:
             self.comm: TCPComm              = TCPComm(
                 config.aircon_server,
@@ -258,7 +259,7 @@ class LGACPacketHandler:
         self.enabled_device_list.append((DeviceType.AIRCON, self.aircon))
 
     def get_room_aircon_number(self, instr: str) -> str:
-        ret_str = self.SYSTEM_ROOM_AIRCON_REV.get(instr)
+        ret_str = self.system_room_aircon_rev.get(instr)
         return ret_str if ret_str is not None else ''
 
     def get_aircon(self, room_name: str) -> Aircon:
