@@ -215,10 +215,12 @@ class TCPComm:
         await self.wait_safe_communication()
         try:
             assert self.reader is not None
-            # read() returns up to length bytes. It blocks until at least 1 byte is available
-            # or EOF is reached. exact wait time depends on network.
-            # We use a short wait_for to prevent indefinite blocking if the device hangs.
+            # read() return b'' if EOF.
             buffer = await asyncio.wait_for(self.reader.read(length), timeout=1.0)
+            if buffer == b'':
+                # Peer closed connection
+                ColorLog().log("Stream EOF detected.", Color.Yellow, ColorLog.Level.DEBUG)
+                self.connection_reset = True
             return buffer
         except asyncio.TimeoutError:
             # No data available right now, that's fine.

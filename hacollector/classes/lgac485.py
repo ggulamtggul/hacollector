@@ -355,8 +355,8 @@ class LGACPacketHandler:
             # 1. Read available data and append to buffer
             new_data = await self.comm.async_read_stream(2048)
             if new_data:
+                self.log.log(f"RX Raw: {new_data.hex()}", Color.Magenta, ColorLog.Level.INFO)
                 self._recv_buffer.extend(new_data)
-                # self.log.log(f"Received {len(new_data)} bytes. Buffer: {len(self._recv_buffer)}", Color.White, ColorLog.Level.DEBUG)
 
             # 2. Packet Hunting Loop
             while len(self._recv_buffer) > 0:
@@ -364,9 +364,11 @@ class LGACPacketHandler:
                 try:
                     header_idx = self._recv_buffer.index(0x80)
                 except ValueError:
-                    # No header found, trash the entire buffer to free memory
-                    if len(self._recv_buffer) > 2048: # Safety cap
-                         self._recv_buffer.clear()
+                    # No header(0x80) in buffer: trash everything to clear garbage
+                    # Logic: If we are here, we have some data but NO header.
+                    # It's better to flush and wait for clean new data.
+                    self.log.log(f"No header(0x80) in buffer: {self._recv_buffer.hex()}", Color.Yellow, ColorLog.Level.DEBUG)
+                    self._recv_buffer.clear()
                     # Wait for more data
                     break
 

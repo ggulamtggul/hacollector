@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.10
+- **Debug**: Enhanced RS485 diagnostic logging. `RX Raw` log now shows incoming hexadecimal data to verify hardware communication.
+- **Fix**: Improved EOF detection in `comm.py`. The collector now correctly identifies when the RS485 converter closes the connection (sending 0 bytes) and triggers a reset.
+- **Stability**: Aggressive buffer clearing. If `0x80` header is not found in the received chunk, the buffer is immediately cleared to prevent garbage accumulation.
+
 ## 1.3.9
 - **Stability**: Refactored RS485 communication to use Stream Buffer and Packet Hunting. This resolves "Packet size mismatch" and deadlock issues by correctly handling fragmented or coalesced packets from the RS485 converter.
 - **Log**: Suppressed "Read From LGAC FAIL" warnings during Auto Discovery scanning. Non-existent devices are now logged at DEBUG level.
