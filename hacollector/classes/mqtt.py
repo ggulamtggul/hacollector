@@ -241,6 +241,8 @@ class MqttHandler:
         self.subscribe_list = []
         # HA 제어용 토픽 구독
         self.subscribe_list.append((f'{cfg.HA_CALLBACK_MAIN}/{cfg.HA_CALLBACK_BRIDGE}/#', 0))
+        # [Improvement] Subscribe to HA Status (Birth Message)
+        self.subscribe_list.append(('homeassistant/status', 0))
         self.publish_list = []
 
         logger = logging.getLogger("MQTT")
@@ -352,6 +354,14 @@ class MqttHandler:
                  asyncio.run_coroutine_threadsafe(self.homeassistant_device_discovery(), self.loop)
                  return
             
+            # [Discovery] Handle HA Birth Message
+            if msg.topic == 'homeassistant/status' and rcv_payload == 'online':
+                logger = logging.getLogger("MQTT")
+                logger.info("Home Assistant is Online! Re-sending Discovery & Availability...")
+                # Re-run discovery (publishes config + availability) without subscribing again
+                asyncio.run_coroutine_threadsafe(self.homeassistant_device_discovery(initial=False), self.loop)
+                return
+
             if not self.start_discovery:
                 self.handle_message_from_mqtt(rcv_topic, rcv_payload)
 

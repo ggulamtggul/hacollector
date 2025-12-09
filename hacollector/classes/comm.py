@@ -118,7 +118,8 @@ class TCPComm:
         try:
             assert self.writer is not None
             self.writer.write(data)
-            await self.writer.drain()
+            async with asyncio.timeout(5.0):
+                 await self.writer.drain()
             self.last_accessed_time = time.monotonic()
             return True
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError, OSError) as e:
@@ -128,7 +129,8 @@ class TCPComm:
             try:
                 assert self.writer is not None
                 self.writer.write(data)
-                await self.writer.drain()
+                async with asyncio.timeout(5.0):
+                    await self.writer.drain()
                 self.last_accessed_time = time.monotonic()
                 return True
             except Exception as e2:

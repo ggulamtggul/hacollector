@@ -365,6 +365,11 @@ class LGACPacketHandler:
             if new_data:
                 # self.log.log(f"RX Raw: {new_data.hex()}", Color.Magenta, ColorLog.Level.INFO)
                 self._recv_buffer.extend(new_data)
+                
+                # [Fix] Prevent Buffer Overflow (Memory Leak Protection)
+                if len(self._recv_buffer) > LGACPacket._RESPONSE_PACKET_SIZE * 50: # Cap at ~800 bytes
+                    self.log.warning(f"Buffer overflow ({len(self._recv_buffer)}b). Clearing garbage.")
+                    self._recv_buffer.clear()
 
             # 2. Packet Hunting Loop
             while len(self._recv_buffer) > 0:

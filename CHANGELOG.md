@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.23
+- **Stability**: Added `asyncio.timeout` to socket write operations (`comm.py`) to prevent potential deadlocks.
+- **Stability**: Added buffer size limit (`lgac485.py`) to prevent memory leaks from packet noise.
+- **Feature**: Added support for Home Assistant Birth Message (`homeassistant/status`) to automatically re-sync availability on HA restart.
+
 ## 1.3.22
 - **Debug**: Added explicit INFO logs for temperature packet parsing `[TempDebug]` to troubleshoot non-updating temperature issues.
 
