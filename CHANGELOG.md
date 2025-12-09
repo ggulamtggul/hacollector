@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.18
+- **Hotfix**: Fixed critical `NameError: name 'asyncio' is not defined` crash on startup. Restored missing `import asyncio` in `hacollector.py` that was accidentally removed during logging refactor.
+
 ## 1.3.17
 - **Refactor**: Replaced custom `ColorLog` with Python standard `logging` module across all classes for better compatibility and stability.
 - **Fix**: Resolved persistent "Unknown" availability state on boot. The collector now explicitly publishes "Online" status and device state immediately upon discovery, without waiting for the first periodic scan or user action.
