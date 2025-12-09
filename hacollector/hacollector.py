@@ -77,6 +77,9 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     enabled_list.extend(aircon.enabled_device_list)
     mqtt.set_enabled_list(enabled_list)
 
+    # Perform Device Scan
+    await aircon.async_scan_all_devices()
+
     color_log.log("Now entering main loop!", Color.Green, ColorLog.Level.DEBUG)
 
     try:

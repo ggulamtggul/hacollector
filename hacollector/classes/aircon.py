@@ -26,6 +26,7 @@ class Aircon:
         self.device: DeviceType = DeviceType.AIRCON
         self.name: str          = DEVICE_AIRCON
         self.room_name: str     = room_name
+        self.id: int            = 0
         self.action: str        = ''
         self.opmode: str        = ''
         self.fanmove: str       = ''

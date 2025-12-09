@@ -15,7 +15,7 @@ LOG_LEVEL=$(jq --raw-output '.log_level' $CONFIG_PATH)
 
 # Join rooms with :
 # Join rooms with : and replace spaces with underscores
-ROOMS=$(jq --raw-output '.rooms | map(gsub(" "; "_")) | join(":")' $CONFIG_PATH)
+ROOMS=$(jq -c '.rooms' $CONFIG_PATH)
 
 echo "Generating hacollector.conf..."
 cat <<EOF > /hacollector/hacollector.conf

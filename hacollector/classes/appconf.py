@@ -96,7 +96,31 @@ class MainConfig:
 
         aircons         = os.getenv('ROOMS_AIRCONS')
 
+
         if aircons:
-            aircon_list: list[str] = aircons.split(':')
-            aircon_dict = {f'{num:02x}': name for num, name in enumerate(aircon_list)}
-            cfg.SYSTEM_ROOM_AIRCON = aircon_dict
+            try:
+                # Try parsing as JSON (new format)
+                # Expected JSON format: {"00": "livingroom", "01": "bedroom"}
+                import json
+                data = json.loads(aircons)
+                if isinstance(data, dict):
+                    cfg.SYSTEM_ROOM_AIRCON = data
+                elif isinstance(data, list):
+                    new_dict = {}
+                    for item in data:
+                        if isinstance(item, dict) and 'name' in item and 'id' in item:
+                            name = item['name']
+                            uid = int(item['id'])
+                            new_dict[f'{uid:02x}'] = name
+                    if new_dict:
+                        cfg.SYSTEM_ROOM_AIRCON = new_dict
+                    else:
+                        # Fallback for list of strings (simple json list)
+                        if len(data) > 0 and isinstance(data[0], str):
+                             cfg.SYSTEM_ROOM_AIRCON = {f'{num:02x}': name for num, name in enumerate(data)}
+            except json.JSONDecodeError:
+                # Fallback to old format (list of names separated by :)
+                # This ensures backward compatibility if run.sh isn't updated simultaneously or for legacy envs
+                aircon_list: list[str] = aircons.split(':')
+                aircon_dict = {f'{num:02x}': name for num, name in enumerate(aircon_list)}
+                cfg.SYSTEM_ROOM_AIRCON = aircon_dict

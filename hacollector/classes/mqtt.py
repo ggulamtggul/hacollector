@@ -32,7 +32,7 @@ class Discovery:
         self.sub: list[tuple[str, int]] = sub
 
     def make_topic_and_payload_for_discovery(
-        self, kind: str, room: str, device: str, icon_name: str
+        self, kind: str, room: str, device: str, icon_name: str, uid: int | None = None
     ) -> tuple[str, dict]:
         common_topic_str = f'{cfg.HA_PREFIX}/{kind}/{room}'
         
@@ -69,7 +69,11 @@ class Discovery:
             # device 정보 덮어쓰기 (기존 로직 유지하되 정리)
             payload["device"]["identifiers"] = [aircon_common_id_str]
             payload['name']                         = f'LG Aircon {room}'
-            payload['uniq_id']                      = aircon_common_id_str
+            if uid is not None:
+                payload['uniq_id'] = f'{cfg.CONF_AIRCON_DEVICE_NAME}_id_{uid:02x}'
+            else:
+                payload['uniq_id'] = aircon_common_id_str
+            
             
             payload[f'{MQTT_MODE}_stat_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'{MQTT_MODE}_stat_tpl']        = '{{ value_json.mode }}'
@@ -107,7 +111,7 @@ class Discovery:
                 room_name = room_aircon.room_name
                 if room_name is not None:
                     ha_topic, ha_payload = self.make_topic_and_payload_for_discovery(
-                        kind=cfg.HA_CLIMATE, room=room_name, device=DEVICE_AIRCON, icon_name=MQTT_ICON_AIRCON
+                        kind=cfg.HA_CLIMATE, room=room_name, device=DEVICE_AIRCON, icon_name=MQTT_ICON_AIRCON, uid=room_aircon.id
                     )
                     # 명령 수신 구독
                     self.sub.append((ha_payload[f'{MQTT_MODE}_{MQTT_CMD_T}'], 0))

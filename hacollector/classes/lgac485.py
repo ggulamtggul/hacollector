@@ -19,8 +19,7 @@ from consts import (DEVICE_AIRCON, MQTT_FAN_MODE, MQTT_MODE, MQTT_SWING_MODE,
                     PAYLOAD_SCAN, PAYLOAD_SILENT, PAYLOAD_STATUS,
                     PAYLOAD_SWING, DeviceType)
 
-TEST_LGAC_SERVER = '10.0.0.252'
-TEST_LGAC_PORT = 8899
+
 
 MAX_READ_ERROR_RETRY = 3
 
@@ -252,8 +251,12 @@ class LGACPacketHandler:
         self.notify_to_homeassistant: Callable[[str, str, Aircon.Info], None] = change_aircon_status
 
     def prepare_enabled(self):
-        for r_name in cfg.SYSTEM_ROOM_AIRCON.values():
+        for r_id, r_name in cfg.SYSTEM_ROOM_AIRCON.items():
             aircon = Aircon(r_name)
+            try:
+                aircon.id = int(r_id, 16)
+            except ValueError:
+                self.log.log(f"Invalid ID {r_id} for room {r_name}, defaulting to 0", Color.Red)
             aircon.set_initial_state()
             self.aircon.append(aircon)
         self.enabled_device_list.append((DeviceType.AIRCON, self.aircon))
@@ -436,6 +439,22 @@ class LGACPacketHandler:
         if not self.send_and_get_state:
             aircon_info = await self.async_send_and_get_result(0, aircon_no, aircon_cmd)
         return aircon_info
+
+    async def async_scan_all_devices(self):
+        self.log.log("Starting Auto Discovery Scan (0x00 - 0x0F)...", Color.Cyan)
+        found_devices = []
+        for id in range(16):  # 0x00 to 0x0F
+            info = await self.async_get_current_status(id)
+            if info:
+                self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
+                found_devices.append(id)
+            await asyncio.sleep(0.2)
+        
+        if found_devices:
+            self.log.log(f"Scan Complete. Found devices at IDs: {[f'0x{i:02x}' for i in found_devices]}", Color.Cyan)
+            self.log.log("Please update your configuration with these IDs.", Color.Cyan)
+        else:
+            self.log.log("Scan Complete. No devices found.", Color.Yellow)
 
     async def async_scan_aircon_status(self, device_obj: Aircon):
         room_no_str = self.get_room_aircon_number(device_obj.room_name)
