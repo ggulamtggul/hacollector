@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 
 class Discovery:
-class Discovery:
     def __init__(self, pub, sub, min_temp=18, max_temp=30) -> None:
         self.pub: list[dict] = pub
         self.sub: list[tuple[str, int]] = sub

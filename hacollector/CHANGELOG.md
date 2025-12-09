@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.13
+- **Fix**: Resolved `IndentationError` in `mqtt.py` introduced in v0.9.12 hotfix. Cleaned up malformed class definition.
+
 ## 0.9.12
 - **Fix**: Critical startup crash resolved. Fixed a bug in `mqtt.py` where `enabled_device` was undefined during initialization.
 
