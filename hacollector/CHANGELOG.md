@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.11
+- **Fix**: Resolved "Illegal discovery topic" error in Home Assistant by sanitizing spaces in room names for MQTT topics. Friendly names still retain spaces (e.g., "living room" -> topic: "living_room", name: "LG Aircon living room").
+
 ## 0.9.10
 - **Fix**: Suppressed "Too many read errors" log and socket reconnection during Auto Discovery. Scanning non-existent devices no longer counts as a connection error.
 

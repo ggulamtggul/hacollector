@@ -275,7 +275,8 @@ class LGACPacketHandler:
         if self.aircon is not None and len(self.aircon) >= 1:
             for item in self.aircon:
                 assert isinstance(item, Aircon)
-                if item.room_name == room_name:
+                # Match exact name or name with spaces replaced by underscores (for MQTT compatibility)
+                if item.room_name == room_name or item.room_name.replace(' ', '_') == room_name:
                     return item
         assert False, "get_aircon error!"
 
