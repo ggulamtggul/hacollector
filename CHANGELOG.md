@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.15
+- **Fix**: Fixed the initial MQTT connection using the old `.../status` topic for "Online" messages. It now correctly uses `.../availability`.
+
 ## 1.3.14
 - **Fix**: Resolved "Unknown" availability state for entities. Fixed mismatched MQTT topic between Discovery and Status Publisher (`.../status` vs `.../availability`).
 

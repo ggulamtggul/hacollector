@@ -179,7 +179,7 @@ class MqttHandler:
         self.publish_list: list[dict]               = []
         self.ignore_handling: bool                  = False
         # Availability Topic
-        self.availability_topic                     = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{PAYLOAD_STATUS}'
+        self.availability_topic                     = f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability'
 
     def set_enabled_list(self, enabled_list: list):
         self.enabled_list = enabled_list
