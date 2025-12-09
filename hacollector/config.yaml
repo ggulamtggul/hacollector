@@ -1,5 +1,5 @@
 name: "HA Collector"
-version: "0.9.5"
+version: "0.9.7"
 slug: "hacollector"
 description: "LG System Aircon (RS485) Collector"
 url: "https://github.com/ggulamtggul/hacollector"

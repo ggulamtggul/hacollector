@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.7
+- **Change**: Reverted Auto-Registration. Found devices are now **logged only** and not automatically added to Home Assistant.
+- **Improvement**: Increased Auto Discovery scan interval (1.5s) to prevent RS485 timeouts and read errors.
+
+## 0.9.6
+- **Improvement**: Implemented "Double Check" verification for Auto Registration. Devices must respond consistently multiple times to be registered, eliminating ghost devices.
+
 ## 0.9.5
 - **Improvement**: Enhanced Auto Registration reliability by verifying sensor data (Mode and Temperature) before adding a device. This prevents ghost devices caused by noise.
 

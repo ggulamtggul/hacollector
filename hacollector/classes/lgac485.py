@@ -440,46 +440,38 @@ class LGACPacketHandler:
             aircon_info = await self.async_send_and_get_result(0, aircon_no, aircon_cmd)
         return aircon_info
 
+    def _is_valid_info(self, info: Aircon.Info | None, id: int, verbose: bool = True) -> bool:
+        if not info:
+            return False
+        
+        if info.opmode == '':
+            if verbose: self.log.log(f"Ignored device at ID: 0x{id:02x} (Invalid Opmode)", Color.Yellow)
+            return False
+            
+        # Stricter temperature check (0 is technically possible but rare for indoor temp, 50 is too high)
+        # Assuming indoor unit, reasonable range might be 0-40.
+        if not (0 <= info.cur_temp <= 40):
+            if verbose: self.log.log(f"Ignored device at ID: 0x{id:02x} (Invalid Temp: {info.cur_temp})", Color.Yellow)
+            return False
+            
+        return True
+
     async def async_scan_all_devices(self):
         self.log.log("Starting Auto Discovery Scan (0x00 - 0x0F)...", Color.Cyan)
         found_devices = []
+        
         for id in range(16):  # 0x00 to 0x0F
             info = await self.async_get_current_status(id)
+            if self._is_valid_info(info, id):
+                self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
+                found_devices.append(id)
             
-            # Validate info to filter out noise
-            if info:
-                is_valid = True
-                if info.opmode == '':
-                    self.log.log(f"Ignored device at ID: 0x{id:02x} (Invalid Opmode)", Color.Yellow)
-                    is_valid = False
-                elif not (0 <= info.cur_temp <= 50):
-                    self.log.log(f"Ignored device at ID: 0x{id:02x} (Invalid Temp: {info.cur_temp})", Color.Yellow)
-                    is_valid = False
-
-                if is_valid:
-                    self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
-                    found_devices.append(id)
-                    
-                    # Check if this ID is already configured
-                    is_configured = False
-                    for aircon in self.aircon:
-                        if aircon.id == id:
-                            is_configured = True
-                            break
-                    
-                    # If not configured, auto-register it
-                    if not is_configured:
-                        new_room_name = f"auto_room_{id:02x}"
-                        self.log.log(f"Auto-registering new device: {new_room_name} (ID: 0x{id:02x})", Color.Yellow)
-                        new_aircon = Aircon(new_room_name)
-                        new_aircon.id = id
-                        new_aircon.set_initial_state()
-                        self.aircon.append(new_aircon)
-                    
-            await asyncio.sleep(0.2)
+            # Slow down scan to prevent timeouts (User Request)
+            await asyncio.sleep(1.5)
         
         if found_devices:
             self.log.log(f"Scan Complete. Found devices at IDs: {[f'0x{i:02x}' for i in found_devices]}", Color.Cyan)
+            self.log.log("Please update your configuration with these IDs.", Color.Cyan)
         else:
             self.log.log("Scan Complete. No devices found.", Color.Yellow)
 
