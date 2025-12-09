@@ -4,6 +4,11 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y tzdata jq curl procps && rm -rf /var/lib/apt/lists/*
 ENV TZ="Asia/Seoul"
 
+WORKDIR /hacollector
+
+COPY requirements.txt /hacollector
+RUN pip3 install --no-cache-dir -r requirements.txt
+
 RUN mkdir -p /hacollector/classes
 COPY hacollector.py /hacollector
 COPY classes/*.py /hacollector/classes/
@@ -13,11 +18,6 @@ COPY hacollector.conf.example /hacollector
 COPY run.sh /hacollector/
 COPY config.yaml /hacollector/
 
-COPY requirements.txt /hacollector
-
-WORKDIR /hacollector
-
-RUN pip3 install --no-cache-dir -r requirements.txt
 RUN chmod +x run.sh
 
 # 간단한 헬스체크: 메인 프로세스가 실행 중인지 확인

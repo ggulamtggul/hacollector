@@ -27,9 +27,11 @@ if TYPE_CHECKING:
 
 
 class Discovery:
-    def __init__(self, pub, sub) -> None:
+    def __init__(self, pub, sub, min_temp=18, max_temp=30) -> None:
         self.pub: list[dict] = pub
         self.sub: list[tuple[str, int]] = sub
+        self.min_temp = min_temp
+        self.max_temp = max_temp
 
     def make_topic_and_payload_for_discovery(
         self, kind: str, room: str, device: str, icon_name: str, uid: int | None = None
@@ -84,8 +86,8 @@ class Discovery:
             payload[f'{MQTT_TEMP}_stat_tpl']        = '{{ value_json.target_temp }}'
             payload[f'{MQTT_TEMP}_step']            = 1
             payload[f'{MQTT_TEMP}_{MQTT_CMD_T}']    = f'{aircon_common_topic_str}/{MQTT_TARGET_TEMP}'
-            payload[f'min_{MQTT_TEMP}']             = 18
-            payload[f'max_{MQTT_TEMP}']             = 30
+            payload[f'min_{MQTT_TEMP}']             = self.min_temp
+            payload[f'max_{MQTT_TEMP}']             = self.max_temp
             
             payload[f'curr_{MQTT_TEMP}_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'curr_{MQTT_TEMP}_tpl']        = '{{ value_json.current_temp }}'
@@ -136,6 +138,8 @@ class MqttHandler:
         self.anonymous                              = config.mqtt_anonymous
         self.id                                     = config.mqtt_id
         self.pw                                     = config.mqtt_pw
+        self.min_temp                               = config.min_temp
+        self.max_temp                               = config.max_temp
         self.mqtt_client: pahomqtt.Client | None    = None
         self.start_discovery                        = False
         self.mqtt_connect_error                     = False
@@ -210,7 +214,7 @@ class MqttHandler:
 
         color_log = ColorLog()
         color_log.log("** Starting Devices Discovery.", Color.Yellow)
-        discovery = Discovery(self.publish_list, self.subscribe_list)
+        discovery = Discovery(self.publish_list, self.subscribe_list, self.min_temp, self.max_temp)
 
         for dev_name, enabled_device in self.enabled_list:
             discovery.make_discovery_list(DeviceType(dev_name), enabled_device, remove)

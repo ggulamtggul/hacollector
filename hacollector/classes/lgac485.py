@@ -227,8 +227,14 @@ class LGACPacketHandler:
         self.enabled_device_list: list  = []
         self.aircon: list               = []
         self.type                       = None
+        self.type                       = None
         # Initialize reverse mapping here to capture runtime config updates
-        self.system_room_aircon_rev = {v: k for k, v in cfg.SYSTEM_ROOM_AIRCON.items()}
+        if config and config.rooms:
+            self.system_room_aircon_rev = {v: k for k, v in config.rooms.items()}
+            self.rooms = config.rooms
+        else:
+            self.system_room_aircon_rev = {v: k for k, v in cfg.SYSTEM_ROOM_AIRCON.items()}
+            self.rooms = cfg.SYSTEM_ROOM_AIRCON
         
         if config:
             self.comm: TCPComm              = TCPComm(
@@ -251,7 +257,7 @@ class LGACPacketHandler:
         self.notify_to_homeassistant: Callable[[str, str, Aircon.Info], None] = change_aircon_status
 
     def prepare_enabled(self):
-        for r_id, r_name in cfg.SYSTEM_ROOM_AIRCON.items():
+        for r_id, r_name in self.rooms.items():
             aircon = Aircon(r_name)
             try:
                 aircon.id = int(r_id, 16)

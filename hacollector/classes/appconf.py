@@ -18,6 +18,9 @@ class MainConfig:
         self.mqtt_id: str                   = ''
         self.mqtt_pw: str                   = ''
         self.log_level: str                 = cfg.CONF_LOGLEVEL
+        self.min_temp: int                  = 18
+        self.max_temp: int                  = 30
+        self.rooms: dict[str, str]          = {}
 
     def read_config_file(self, config: ConfigParser) -> bool:
         color_log = ColorLog()
@@ -94,6 +97,23 @@ class MainConfig:
         if log_partial_debug and log_partial_debug != 'false':
             color_log.set_partial_debug()
 
+        if log_partial_debug and log_partial_debug != 'false':
+            color_log.set_partial_debug()
+            
+        env_min_temp = os.getenv('MIN_TEMP')
+        if env_min_temp:
+            try:
+                self.min_temp = int(env_min_temp)
+            except ValueError:
+                pass
+                
+        env_max_temp = os.getenv('MAX_TEMP')
+        if env_max_temp:
+            try:
+                self.max_temp = int(env_max_temp)
+            except ValueError:
+                pass
+
         aircons         = os.getenv('ROOMS_AIRCONS')
 
 
@@ -104,7 +124,8 @@ class MainConfig:
                 import json
                 data = json.loads(aircons)
                 if isinstance(data, dict):
-                    cfg.SYSTEM_ROOM_AIRCON = data
+                    self.rooms = data
+                    # cfg.SYSTEM_ROOM_AIRCON = data # Legacy Global (Deprecated)
                 elif isinstance(data, list):
                     new_dict = {}
                     for item in data:
@@ -113,14 +134,21 @@ class MainConfig:
                             uid = int(item['id'])
                             new_dict[f'{uid:02x}'] = name
                     if new_dict:
-                        cfg.SYSTEM_ROOM_AIRCON = new_dict
+                        self.rooms = new_dict
+                        # cfg.SYSTEM_ROOM_AIRCON = new_dict # Legacy Global (Deprecated)
                     else:
                         # Fallback for list of strings (simple json list)
                         if len(data) > 0 and isinstance(data[0], str):
-                             cfg.SYSTEM_ROOM_AIRCON = {f'{num:02x}': name for num, name in enumerate(data)}
+                             self.rooms = {f'{num:02x}': name for num, name in enumerate(data)}
+                             # cfg.SYSTEM_ROOM_AIRCON = self.rooms # Legacy Global
             except json.JSONDecodeError:
                 # Fallback to old format (list of names separated by :)
                 # This ensures backward compatibility if run.sh isn't updated simultaneously or for legacy envs
                 aircon_list: list[str] = aircons.split(':')
                 aircon_dict = {f'{num:02x}': name for num, name in enumerate(aircon_list)}
-                cfg.SYSTEM_ROOM_AIRCON = aircon_dict
+                self.rooms = aircon_dict
+                # cfg.SYSTEM_ROOM_AIRCON = aircon_dict
+        
+        # Populate global for backward compatibility (if needed) but prefer object passing
+        if self.rooms:
+            cfg.SYSTEM_ROOM_AIRCON = self.rooms

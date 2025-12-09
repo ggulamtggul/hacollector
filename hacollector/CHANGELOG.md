@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.8
+- **Fix**: Startup blocking issue resolved. Auto-discovery scan now runs in the background, allowing the add-on to report "Online" immediately.
+- **Feature**: Added `min_temp` and `max_temp` options to `config.yaml` (default: 18~30).
+- **Improvement**: Optimized Dockerfile build speed by caching requirements.
+- **Refactor**: Improved code quality by reducing dependency on global configuration variables.
+
 ## 0.9.7
 - **Change**: Reverted Auto-Registration. Found devices are now **logged only** and not automatically added to Home Assistant.
 - **Improvement**: Increased Auto Discovery scan interval (1.5s) to prevent RS485 timeouts and read errors.
