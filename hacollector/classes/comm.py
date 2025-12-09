@@ -205,3 +205,25 @@ class TCPComm:
                 except Exception:
                     pass
         return buffer
+    async def async_read_stream(self, length: int) -> bytes:
+        """
+        Read up to `length` bytes. Returns immediately with whatever is available,
+        or waits until at least 1 byte is available.
+        Returns b'' on EOF or connection error.
+        Does NOT automatically close socket on timeout/error; leaves that to caller.
+        """
+        await self.wait_safe_communication()
+        try:
+            assert self.reader is not None
+            # read() returns up to length bytes. It blocks until at least 1 byte is available
+            # or EOF is reached. exact wait time depends on network.
+            # We use a short wait_for to prevent indefinite blocking if the device hangs.
+            buffer = await asyncio.wait_for(self.reader.read(length), timeout=1.0)
+            return buffer
+        except asyncio.TimeoutError:
+            # No data available right now, that's fine.
+            return b''
+        except Exception as e:
+            # Any other error means the stream is likely broken
+            ColorLog().log(f"Stream read error: {e}", Color.Yellow, ColorLog.Level.DEBUG)
+            return b''

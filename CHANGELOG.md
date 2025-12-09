@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.9
+- **Stability**: Refactored RS485 communication to use Stream Buffer and Packet Hunting. This resolves "Packet size mismatch" and deadlock issues by correctly handling fragmented or coalesced packets from the RS485 converter.
+- **Log**: Suppressed "Read From LGAC FAIL" warnings during Auto Discovery scanning. Non-existent devices are now logged at DEBUG level.
+
 ## 1.3.8
 - **Rollback**: Reverted RS485 communication logic (`lgac485.py`, `comm.py`) exactly to **v1.1.2** state.
 - **Removed**: "Persistent Connection", "Packet Hunting", and "Header Hunt Timeout" features are removed in this network layer to resolve specific hardware compatibility issues.

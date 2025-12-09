@@ -249,6 +249,7 @@ class LGACPacketHandler:
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
         self.log                        = ColorLog()
         self.scan_interval              = config.scan_interval if config else cfg.WALLPAD_SCAN_INTERVAL_TIME
+        self._recv_buffer: bytearray    = bytearray()
         self.prepare_enabled()
 
     def sync_close_socket(self, loop):
@@ -343,27 +344,57 @@ class LGACPacketHandler:
         except Exception as e:
             self.log.log(f"[From HA]Error [{e}] {topic} = {payload}", Color.Red)
 
-    async def async_read_until_tail(self, allow_reconnect: bool = True) -> bytes:
-        # Optimized reading: try to read the full body size at once
-        res_packet = await self.comm.async_get_data_direct(LGACPacket._RESPONSE_PACKET_SIZE, reconnect_on_failure=allow_reconnect)
-        return res_packet
+    async def async_read_packet(self, timeout: float = 2.0) -> bytes | None:
+        """
+        Reads from the stream and hunts for a valid packet properly.
+        Handles fragmentation (split packets) and coalescing (merged packets).
+        """
+        start_time = time.monotonic()
+        
+        while (time.monotonic() - start_time) < timeout:
+            # 1. Read available data and append to buffer
+            new_data = await self.comm.async_read_stream(2048)
+            if new_data:
+                self._recv_buffer.extend(new_data)
+                # self.log.log(f"Received {len(new_data)} bytes. Buffer: {len(self._recv_buffer)}", Color.White, ColorLog.Level.DEBUG)
 
-    async def async_read_one_chunk(self, allow_reconnect: bool = True) -> bytes | None:
-        try:
-            body = await self.async_read_until_tail(allow_reconnect)
-            if len(body) != LGACPacket._RESPONSE_PACKET_SIZE:
-                # self.log.log("Packet size is not MATCH! - retry!", Color.Blue, ColorLog.Level.DEBUG)
-                return None
+            # 2. Packet Hunting Loop
+            while len(self._recv_buffer) > 0:
+                # Find Header (0x80)
+                try:
+                    header_idx = self._recv_buffer.index(0x80)
+                except ValueError:
+                    # No header found, trash the entire buffer to free memory
+                    if len(self._recv_buffer) > 2048: # Safety cap
+                         self._recv_buffer.clear()
+                    # Wait for more data
+                    break
 
-            if not self.is_checksum_ok(body):
-                self.log.log(f"Unhappy CASE(Aircon) : Checksum Error![{body.hex()}]", Color.Red)
-                self.log.log("trying to read again!! ******", Color.Blue, ColorLog.Level.DEBUG)
-                return None
-
-            return body
-
-        except Exception as e:
-            self.log.log(f"[Error LGAC rs485] : {e} : Cannot read From LGAC!", Color.Yellow, ColorLog.Level.WARN)
+                # Discard garbage before the header
+                if header_idx > 0:
+                    del self._recv_buffer[:header_idx]
+                
+                # Check if we have enough data for a full packet
+                if len(self._recv_buffer) < LGACPacket._RESPONSE_PACKET_SIZE:
+                    # Not enough data yet, break inner loop to read more
+                    break
+                
+                # We have at least 16 bytes starting with 0x80. Check Checksum.
+                possible_packet = self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
+                if self.is_checksum_ok(possible_packet):
+                    # Valid Packet Found!
+                    # Consume the packet from buffer
+                    del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
+                    return bytes(possible_packet)
+                else:
+                    # Invalid Checksum. This 0x80 was a false positive or corrupted.
+                    # Discard just this one byte (0x80) and continue searching from the next byte
+                    del self._recv_buffer[0:1]
+                    continue
+            
+            # Small sleep to prevent tight loop if no data
+            await asyncio.sleep(0.05)
+            
         return None
 
     async def async_send_and_get_result(self, group_no: int, id: int, airconset: Aircon.Info, count_error: bool = True) -> Aircon.Info | None:
@@ -390,7 +421,10 @@ class LGACPacketHandler:
             ok: bool = await self.comm.async_write_one_chunk(send_packet)
             if ok:
                 await asyncio.sleep(cfg.RS485_WRITE_INTERVAL_SEC)
-                read_packet = await self.async_read_one_chunk(allow_reconnect=count_error)
+                
+                # Use new Packet Hunting method
+                read_packet = await self.async_read_packet(timeout=1.5)
+                
                 if read_packet:
                     self.log.log(f"Read From LGAC ==> {read_packet.hex()}", Color.Green, ColorLog.Level.DEBUG)
 
@@ -407,7 +441,11 @@ class LGACPacketHandler:
                     )
                     self.read_error_count = 0
                 else:
-                    self.log.log("Read From LGAC FAIL!", Color.Green, ColorLog.Level.WARN)
+                    if count_error:
+                        self.log.log("Read From LGAC FAIL! (Timeout or No valid packet)", Color.Yellow, ColorLog.Level.WARN)
+                    else:
+                        self.log.log("Read From LGAC FAIL! (Scanning empty slot)", Color.Yellow, ColorLog.Level.DEBUG)
+                        
                     if count_error:
                         self.read_error_count += 1
                         if self.read_error_count > MAX_READ_ERROR_RETRY:
@@ -422,15 +460,7 @@ class LGACPacketHandler:
             if count_error:
                 await handle_max_read_error()
         finally:
-            # We don't necessarily need to close socket every time if we want persistent connection,
-            # but the original logic seemed to prefer closing or maybe it was just for safety.
-            # Let's keep close for now to match original behavior but async.
-            # Actually, for RS485/TCP bridges, keeping connection might be better, but let's stick to safe close if that was the intent.
-            # However, frequent open/close might be overhead.
-            # The original code had `await self.comm.close_async_socket()` in finally.
-            # await self.comm.close_async_socket()
             pass
-            # self.send_and_get_state = False
 
         return ret
 
