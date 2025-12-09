@@ -6,7 +6,8 @@ import socket
 import time
 from typing import Optional
 
-from classes.utils import Color, ColorLog
+import logging
+from classes.utils import Color
 
 
 class TCPComm:
@@ -59,8 +60,8 @@ class TCPComm:
             if self.writer is not None and not self.writer.is_closing():
                 return
 
-            color_log = ColorLog()
-            color_log.log(f"Connecting to {self.server}:{self.port} ...", Color.White, ColorLog.Level.INFO)
+            logger = logging.getLogger("TCPComm")
+            logger.info(f"Connecting to {self.server}:{self.port} ...")
 
             # Try a couple of times before giving up to caller
             last_err: Optional[Exception] = None
@@ -74,11 +75,11 @@ class TCPComm:
                         sock.settimeout(None)
                     self.reader, self.writer = reader, writer
                     self.connection_reset = False
-                    color_log.log("Connected.", Color.Green, ColorLog.Level.INFO)
+                    logger.info("Connected.")
                     return
                 except Exception as e:
                     last_err = e
-                    color_log.log(f"Connect attempt {attempt} failed: {e}", Color.Yellow, ColorLog.Level.WARN)
+                    logger.warning(f"Connect attempt {attempt} failed: {e}")
                     await asyncio.sleep(min(1.0 * attempt, 3.0))
 
             # bubble up last error
@@ -113,7 +114,7 @@ class TCPComm:
         Write a single chunk. If the connection is broken, reconnect once and retry.
         """
         await self.wait_safe_communication()
-        color_log = ColorLog()
+        logger = logging.getLogger("TCPComm")
         try:
             assert self.writer is not None
             self.writer.write(data)
@@ -121,7 +122,7 @@ class TCPComm:
             self.last_accessed_time = time.monotonic()
             return True
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError, OSError) as e:
-            color_log.log(f"Socket write error: {e}. Reconnecting...", Color.Yellow, ColorLog.Level.WARN)
+            logger.warning(f"Socket write error: {e}. Reconnecting...")
             await self.close_async_socket()
             await self.connect_async_socket()
             try:
@@ -131,7 +132,7 @@ class TCPComm:
                 self.last_accessed_time = time.monotonic()
                 return True
             except Exception as e2:
-                color_log.log(f"Write failed again after reconnect: {e2}", Color.Red, ColorLog.Level.ERROR)
+                logger.error(f"Write failed again after reconnect: {e2}")
                 return False
 
     async def async_get_data(self, length: int) -> bytes:
@@ -140,7 +141,7 @@ class TCPComm:
         If the socket broke, set connection_reset and return b''.
         """
         await self.wait_safe_communication()
-        color_log = ColorLog()
+        logger = logging.getLogger("TCPComm")
         try:
             while length > len(self.read_buffer):
                 try:
@@ -164,13 +165,13 @@ class TCPComm:
 
             if ret == b'' and self.connection_reset and not self._closing:
                 # try one reconnect for next caller
-                color_log.log("Read detected closed socket. Reconnecting...", Color.Yellow, ColorLog.Level.WARN)
+                logger.warning("Read detected closed socket. Reconnecting...")
                 await self.close_async_socket()
                 await self.connect_async_socket()
 
             return ret
         except Exception as e:
-            color_log.log(f"Exception in socket READ: {e}", Color.Red, ColorLog.Level.CRITICAL)
+            logger.critical(f"Exception in socket READ: {e}")
             # Best-effort reset
             await self.close_async_socket()
             return b''
@@ -185,10 +186,9 @@ class TCPComm:
             assert self.reader is not None
             buffer = await asyncio.wait_for(self.reader.read(length), timeout=2.0)
         except asyncio.TimeoutError:
-            color_log = ColorLog()
             # Suppress log if we don't plan to reconnect (expected timeout)
             if reconnect_on_failure:
-                color_log.log("Timeout waiting for data from socket.", Color.Yellow, ColorLog.Level.WARN)
+                logging.getLogger("TCPComm").warning("Timeout waiting for data from socket.")
             return b''
         except IOError as e:
             buffer = b''
@@ -219,7 +219,7 @@ class TCPComm:
             buffer = await asyncio.wait_for(self.reader.read(length), timeout=1.0)
             if buffer == b'':
                 # Peer closed connection
-                ColorLog().log("Stream EOF detected.", Color.Yellow, ColorLog.Level.DEBUG)
+                logging.getLogger("TCPComm").debug("Stream EOF detected.")
                 self.connection_reset = True
             return buffer
         except asyncio.TimeoutError:
@@ -227,5 +227,5 @@ class TCPComm:
             return b''
         except Exception as e:
             # Any other error means the stream is likely broken
-            ColorLog().log(f"Stream read error: {e}", Color.Yellow, ColorLog.Level.DEBUG)
+            logging.getLogger("TCPComm").debug(f"Stream read error: {e}")
             return b''

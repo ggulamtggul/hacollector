@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.17
+- **Refactor**: Replaced custom `ColorLog` with Python standard `logging` module across all classes for better compatibility and stability.
+- **Fix**: Resolved persistent "Unknown" availability state on boot. The collector now explicitly publishes "Online" status and device state immediately upon discovery, without waiting for the first periodic scan or user action.
+
 ## 1.3.16
 - **Fix**: Corrected the initial availability message logic during discovery. It now correctly iterates through enabled devices and sends "Online" to each room's specific availability topic, ensuring entities are immediately available on boot.
 

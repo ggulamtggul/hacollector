@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING, Callable
 
 import paho.mqtt.client as pahomqtt
 
+import logging
 import config as cfg
 from classes.appconf import MainConfig
-from classes.utils import Color, ColorLog
+from classes.utils import Color
 from consts import (
                     DEVICE_AIRCON, MQTT_CMD_T, MQTT_CONFIG,
                     MQTT_CURRENT_TEMP, MQTT_FAN_MODE,
@@ -194,7 +195,7 @@ class MqttHandler:
         self.ignore_handling = True
 
     def connect_mqtt(self) -> None:
-        color_log = ColorLog()
+        logger = logging.getLogger("MQTT")
         is_anonymous = True if self.anonymous == 'True' else False
         server = self.server
         port = self.port
@@ -210,19 +211,18 @@ class MqttHandler:
             username = self.id
             password = self.pw
             if server == '' or username == '' or password == '':
-                color_log.log(
-                    f"{cfg.CONF_MQTT} Check Config! Server[{server}] ID[{username}] PW[{password}]",
-                    Color.Red
+                logger.error(
+                    f"{cfg.CONF_MQTT} Check Config! Server[{server}] ID[{username}] PW[{password}]"
                 )
                 return
             self.mqtt_client.username_pw_set(username=username, password=password)
 
-        color_log.log(f"Connecting MQTT... {server}:{port}", Color.Yellow)
+        logger.info(f"Connecting MQTT... {server}:{port}")
         try:
             self.mqtt_client.connect(server, port, 60)
             self.mqtt_client.loop_start()
         except Exception as e:
-            color_log.log(f"MQTT Connection Failed: {e}", Color.Red)
+            logger.error(f"MQTT Connection Failed: {e}")
 
     def cleanup(self) -> None:
         if self.mqtt_client:
@@ -233,7 +233,6 @@ class MqttHandler:
         self.mqtt_connect_error = True
 
     def handle_message_from_mqtt(self, topic: list[str], payload: str) -> None:
-        color_log = ColorLog()
         # debug logs...
         if topic[0] == cfg.CONF_AIRCON_DEVICE_NAME:
             self.aircon_mqtt_handler(topic, payload)
@@ -244,8 +243,8 @@ class MqttHandler:
         self.subscribe_list.append((f'{cfg.HA_CALLBACK_MAIN}/{cfg.HA_CALLBACK_BRIDGE}/#', 0))
         self.publish_list = []
 
-        color_log = ColorLog()
-        color_log.log("** Starting Devices Discovery.", Color.Yellow)
+        logger = logging.getLogger("MQTT")
+        logger.info("** Starting Devices Discovery.")
         discovery = Discovery(self.publish_list, self.subscribe_list, self.min_temp, self.max_temp)
 
         for dev_name, enabled_device in self.enabled_list:
@@ -285,7 +284,7 @@ class MqttHandler:
                             if isinstance(room_aircon, Aircon) and room_aircon.room_name:
                                 self.publish_availability(room_aircon.room_name, PAYLOAD_ONLINE)
                 
-                color_log.log(f"Sent Online Status to {self.availability_topic} and Devices", Color.Green)
+                logger.info(f"Sent Online Status to {self.availability_topic} and Devices")
 
         if self.start_discovery:
             self.start_discovery = False
@@ -301,7 +300,6 @@ class MqttHandler:
     
     def change_aircon_status(self, dev_str: str, room_str: str, aircon_info: Aircon.Info):
         # 기존 로직 유지
-        color_log = ColorLog()
         if aircon_info.action in [PAYLOAD_OFF, PAYLOAD_LOCKOFF]:
             mode = PAYLOAD_OFF
         else:
@@ -329,9 +327,9 @@ class MqttHandler:
             self.mqtt_client.publish(topic, status, retain=True)
 
     def on_connect(self, client, userdata, flags, rc):
-        color_log = ColorLog()
+        logger = logging.getLogger("MQTT")
         if int(rc) == 0:
-            color_log.log("[MQTT] Connected OK", Color.Yellow)
+            logger.info("[MQTT] Connected OK")
             # 연결 즉시 온라인 상태 전송
             client.publish(self.availability_topic, PAYLOAD_ONLINE, retain=True)
             self.start_discovery = True
@@ -340,7 +338,7 @@ class MqttHandler:
             # This callback runs in a separate thread (paho loop), so we must use threadsafe scheduling
             asyncio.run_coroutine_threadsafe(self.homeassistant_device_discovery(initial=True), self.loop)
         else:
-            color_log.log(f"[MQTT] Connection Failed: rc={rc}", Color.Red)
+            logger.error(f"[MQTT] Connection Failed: rc={rc}")
             self.mqtt_connect_error = True
 
     def on_message(self, client, obj, msg: pahomqtt.MQTTMessage):

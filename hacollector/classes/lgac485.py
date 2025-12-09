@@ -6,11 +6,12 @@ from struct import calcsize, pack, unpack
 import time
 from typing import Callable
 
+import logging
 import config as cfg
 from classes.aircon import Aircon
 from classes.appconf import MainConfig
 from classes.comm import TCPComm
-from classes.utils import Color, ColorLog
+from classes.utils import Color
 from consts import (DEVICE_AIRCON, MQTT_FAN_MODE, MQTT_MODE, MQTT_SWING_MODE,
                     MQTT_TARGET_TEMP, PAYLOAD_AUTO, PAYLOAD_COOL, PAYLOAD_DRY,
                     PAYLOAD_FAN_ONLY, PAYLOAD_FIXED, PAYLOAD_HEAT,
@@ -86,13 +87,11 @@ class LGACPacket:
         return calcsize(LGACPacket.FMT_body_read)
 
     def set_packet_data(self, rawdata: bytes) -> bool:
-        color_log = ColorLog()
+        logger = logging.getLogger("LGACPacket")
         try:
             if len(rawdata) != self._body_size:
-                color_log.log(
-                    f"Error: LGAC Packet size mismatch {len(rawdata)} != {self._body_size}",
-                    Color.Red,
-                    ColorLog.Level.DEBUG
+                logger.debug(
+                    f"Error: LGAC Packet size mismatch {len(rawdata)} != {self._body_size}"
                 )
                 return False
             res = unpack(LGACPacket.FMT_body_read, rawdata)
@@ -119,10 +118,10 @@ class LGACPacket:
             self.pipe1_temp = self.calc_temp(self.pipe1_temp)
             self.pipe2_temp = self.calc_temp(self.pipe2_temp)
             self.get_detail_mode()
-            color_log.log(f"LGAC Packet Body = [ {rawdata.hex()} ]", Color.White, ColorLog.Level.DEBUG)
+            logger.debug(f"LGAC Packet Body = [ {rawdata.hex()} ]")
             return True
         except Exception as e:
-            color_log.log(f"Error: LGAC unpack data = [{e}]", Color.Red, ColorLog.Level.DEBUG)
+            logger.debug(f"Error: LGAC unpack data = [{e}]")
             return False
 
     def get_lgac_action_data(self, id: str) -> int:
@@ -178,8 +177,11 @@ class LGACPacket:
         if self.str_fanmode == '':
             self.str_fanmode = PAYLOAD_LOW
 
-        color_log = ColorLog()
-        color_log.log(f"LGAC new_packet = [{self}]", Color.White, ColorLog.Level.DEBUG)
+        if self.str_fanmode == '':
+            self.str_fanmode = PAYLOAD_LOW
+
+        logger = logging.getLogger("LGACPacket")
+        logger.debug(f"LGAC new_packet = [{self}]")
 
     def set_detail_mode(self) -> None:
         self.action = self.get_lgac_action_data(self.str_action)
@@ -247,7 +249,7 @@ class LGACPacketHandler:
         self.loop: asyncio.AbstractEventLoop = loop if loop else asyncio.get_running_loop()
         self.read_error_count           = 0
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
-        self.log                        = ColorLog()
+        self.log                        = logging.getLogger(f"LGAC:{self.name}")
         self.scan_interval              = config.scan_interval if config else cfg.WALLPAD_SCAN_INTERVAL_TIME
         self._recv_buffer: bytearray    = bytearray()
         self.config = config
@@ -269,7 +271,7 @@ class LGACPacketHandler:
             try:
                 aircon.id = int(r_id, 16)
             except ValueError:
-                self.log.log(f"Invalid ID {r_id} for room {r_name}, defaulting to 0", Color.Red)
+                self.log.error(f"Invalid ID {r_id} for room {r_name}, defaulting to 0")
             aircon.set_initial_state()
             self.aircon.append(aircon)
         self.enabled_device_list.append((DeviceType.AIRCON, self.aircon))
@@ -296,7 +298,7 @@ class LGACPacketHandler:
             return False
 
     def handle_aircon_mqtt_message(self, topic: list[str], payload: str):
-        self.log.log(f"LGAircon Action From MQTT.{topic}, = {payload}", Color.Yellow, ColorLog.Level.DEBUG)
+        self.log.debug(f"LGAircon Action From MQTT.{topic}, = {payload}")
         device_str = DEVICE_AIRCON
         room_str = topic[2]
         cmd_str = topic[3]
@@ -404,7 +406,7 @@ class LGACPacketHandler:
 
     async def async_send_and_get_result(self, group_no: int, id: int, airconset: Aircon.Info, count_error: bool = True) -> Aircon.Info | None:
         async def handle_max_read_error():
-            self.log.log("Too many read errors. Closing socket to force reconnection...", Color.Red, ColorLog.Level.WARN)
+            self.log.warning("Too many read errors. Closing socket to force reconnection...")
             await self.comm.close_async_socket()
             # Do not exit, just let the next loop try to reconnect
             # await asyncio.sleep(5) # Optional delay
@@ -431,10 +433,10 @@ class LGACPacketHandler:
                 read_packet = await self.async_read_packet(timeout=1.5)
                 
                 if read_packet:
-                    self.log.log(f"Read From LGAC ==> {read_packet.hex()}", Color.Green, ColorLog.Level.DEBUG)
+                    self.log.debug(f"Read From LGAC ==> {read_packet.hex()}")
 
                     new_packet = LGACPacket(read_packet)
-                    self.log.log(f'{new_packet}', Color.Green, ColorLog.Level.DEBUG)
+                    self.log.debug(f'{new_packet}')
 
                     ret = Aircon.Info(
                         new_packet.str_action,
@@ -447,9 +449,9 @@ class LGACPacketHandler:
                     self.read_error_count = 0
                 else:
                     if count_error:
-                        self.log.log("Read From LGAC FAIL! (Timeout or No valid packet)", Color.Yellow, ColorLog.Level.WARN)
+                        self.log.warning("Read From LGAC FAIL! (Timeout or No valid packet)")
                     else:
-                        self.log.log("Read From LGAC FAIL! (Scanning empty slot)", Color.Yellow, ColorLog.Level.DEBUG)
+                        self.log.debug("Read From LGAC FAIL! (Scanning empty slot)")
                         
                     if count_error:
                         self.read_error_count += 1
@@ -457,11 +459,11 @@ class LGACPacketHandler:
                             self.read_error_count = 0
                             await handle_max_read_error()
             else:
-                self.log.log(f"Write to LGAC FAIL!{send_packet.hex()}", Color.Yellow, ColorLog.Level.WARN)
+                self.log.warning(f"Write to LGAC FAIL!{send_packet.hex()}")
                 if count_error:
                     await handle_max_read_error()
         except Exception as e:
-            self.log.log(f"Something wrong in Write and read Aircon({e})", Color.Red, ColorLog.Level.CRITICAL)
+            self.log.critical(f"Something wrong in Write and read Aircon({e})")
             if count_error:
                 await handle_max_read_error()
         finally:
@@ -471,7 +473,7 @@ class LGACPacketHandler:
 
     async def async_get_current_status(self, aircon_no: int, count_error: bool = True) -> Aircon.Info | None:
         aircon_cmd = Aircon.Info(PAYLOAD_STATUS, '', '', '', 25.0, 25)
-        self.log.log(f"Get Aircon Status : {aircon_no}", Color.Yellow, ColorLog.Level.DEBUG)
+        self.log.debug(f"Get Aircon Status : {aircon_no}")
 
         try:
              # Wait for lock with timeout to prevent infinite blocking
@@ -479,12 +481,12 @@ class LGACPacketHandler:
                 async with self._lock:
                     aircon_info: Aircon.Info | None = await self.async_send_and_get_result(0, aircon_no, aircon_cmd, count_error)
                     if aircon_info:
-                        self.log.log(f"Returned Get Aircon Status : {aircon_info.opmode})", Color.Yellow, ColorLog.Level.DEBUG)
+                        self.log.debug(f"Returned Get Aircon Status : {aircon_info.opmode})")
                         if aircon_info.opmode == PAYLOAD_AUTO:
                             aircon_info.action = PAYLOAD_ON
                         return aircon_info
         except asyncio.TimeoutError:
-             self.log.log(f"Timeout waiting for lock in get_status({aircon_no})", Color.Yellow, ColorLog.Level.DEBUG)
+             self.log.debug(f"Timeout waiting for lock in get_status({aircon_no})")
         return None
 
     async def async_set_current_mode(self, aircon_no: int, aircon_cmd: Aircon.Info) -> Aircon.Info | None:
@@ -496,7 +498,7 @@ class LGACPacketHandler:
                 async with self._lock:
                     aircon_info = await self.async_send_and_get_result(0, aircon_no, aircon_cmd)
         except asyncio.TimeoutError:
-             self.log.log(f"Timeout waiting for lock in set_mode({aircon_no})", Color.Yellow, ColorLog.Level.DEBUG)
+             self.log.debug(f"Timeout waiting for lock in set_mode({aircon_no})")
              
         return aircon_info
 
@@ -505,13 +507,13 @@ class LGACPacketHandler:
             return False
         
         if info.opmode == '':
-            if verbose: self.log.log(f"Ignored device at ID: 0x{id:02x} (Invalid Opmode)", Color.Yellow)
+            if verbose: self.log.warning(f"Ignored device at ID: 0x{id:02x} (Invalid Opmode)")
             return False
             
         # Stricter temperature check (0 is technically possible but rare for indoor temp, 50 is too high)
         # Assuming indoor unit, reasonable range might be 0-40.
         if not (0 <= info.cur_temp <= 40):
-            if verbose: self.log.log(f"Ignored device at ID: 0x{id:02x} (Invalid Temp: {info.cur_temp})", Color.Yellow)
+            if verbose: self.log.warning(f"Ignored device at ID: 0x{id:02x} (Invalid Temp: {info.cur_temp})")
             return False
             
         return True
@@ -519,7 +521,7 @@ class LGACPacketHandler:
     async def async_scan_all_devices(self):
         # 1. Targeted Scan (Fast Boot)
         target_ids = sorted([int(x, 16) for x in self.rooms.keys()])
-        self.log.log(f"Starting Targeted Discovery Scan: {[f'0x{i:02x}' for i in target_ids]}", Color.Cyan)
+        self.log.info(f"Starting Targeted Discovery Scan: {[f'0x{i:02x}' for i in target_ids]}")
         
         found_devices = []
         
@@ -527,36 +529,61 @@ class LGACPacketHandler:
         for id in target_ids:
             info = await self.async_get_current_status(id, count_error=False)
             if self._is_valid_info(info, id):
-                self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
+                self.log.info(f"FOUND DEVICE at ID: 0x{id:02x}")
                 found_devices.append(id)
+
+                # [FIX] Immediately publish found device state and availability
+                for device in self.aircon:
+                    if device.id == id:
+                        # 1. Update State (Temp, Mode, etc.)
+                        if self.notify_to_homeassistant:
+                             self.notify_to_homeassistant(device.name, device.room_name, info)
+                        
+                        # 2. Update Availability (Online)
+                        if self.notify_availability:
+                             self.notify_availability(device.room_name, PAYLOAD_ONLINE)
+                             device.last_availability_status = PAYLOAD_ONLINE
+                        break
+
             # Scan delay
             await asyncio.sleep(1.0) # slightly faster for targeted
 
         # 2. Full Scan (Optional)
         if hasattr(self, 'config') and self.config.full_scan_on_boot:
-             self.log.log("Starting Full Range Scan (0x00 - 0x0F) as requested...", Color.Cyan)
+             self.log.info("Starting Full Range Scan (0x00 - 0x0F) as requested...")
              for id in range(16):
                  if id in target_ids:
                      continue # Already scanned
                  
                  info = await self.async_get_current_status(id, count_error=False)
                  if self._is_valid_info(info, id):
-                     self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
+                     self.log.info(f"FOUND DEVICE at ID: 0x{id:02x}")
                      found_devices.append(id)
+                     
+                     # [FIX] Immediately publish found device state and availability (Full Scan)
+                     for device in self.aircon:
+                        if device.id == id:
+                            if self.notify_to_homeassistant:
+                                 self.notify_to_homeassistant(device.name, device.room_name, info)
+                            if self.notify_availability:
+                                 self.notify_availability(device.room_name, PAYLOAD_ONLINE)
+                                 device.last_availability_status = PAYLOAD_ONLINE
+                            break
+
                  await asyncio.sleep(1.0)
         else:
-            self.log.log("Skipping full range scan (enabled 'full_scan_on_boot' to scan 0x00-0x0F)", Color.Cyan, ColorLog.Level.DEBUG)
+            self.log.debug("Skipping full range scan (enabled 'full_scan_on_boot' to scan 0x00-0x0F)")
 
         if found_devices:
-            self.log.log(f"Scan Complete. Found devices at IDs: {[f'0x{i:02x}' for i in found_devices]}", Color.Cyan)
-            self.log.log("Please update your configuration with these IDs.", Color.Cyan)
+            self.log.info(f"Scan Complete. Found devices at IDs: {[f'0x{i:02x}' for i in found_devices]}")
+            self.log.info("Please update your configuration with these IDs.")
         else:
-            self.log.log("Scan Complete. No devices found.", Color.Yellow)
+            self.log.warning("Scan Complete. No devices found.")
 
     async def async_scan_aircon_status(self, device_obj: Aircon):
         room_no_str = self.get_room_aircon_number(device_obj.room_name)
         no = int(room_no_str)
-        self.log.log(f"Aircorn Room name = {device_obj.room_name}, Number = {no}", Color.White, ColorLog.Level.DEBUG)
+        self.log.debug(f"Aircorn Room name = {device_obj.room_name}, Number = {no}")
 
         aircon_info: Aircon.Info | None  = await self.async_get_current_status(no)
         
@@ -577,7 +604,7 @@ class LGACPacketHandler:
             assert isinstance(aircon, Aircon)
             if (now - aircon.scan.tick) > self.scan_interval:
                 aircon.scan.tick = now
-                self.log.log(f">>>>>Rescan {aircon} Check Sending!!!!", Color.Blue, ColorLog.Level.DEBUG)
+                self.log.debug(f">>>>>Rescan {aircon} Check Sending!!!!")
                 await self.async_scan_aircon_status(aircon)
                 await asyncio.sleep(cfg.PACKET_RESEND_INTERVAL_SEC)
 

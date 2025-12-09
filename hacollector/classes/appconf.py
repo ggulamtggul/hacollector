@@ -3,8 +3,9 @@ from __future__ import annotations
 import os
 from configparser import ConfigParser
 
+import logging
 import config as cfg
-from classes.utils import Color, ColorLog
+from classes.utils import Color
 
 
 class MainConfig:
@@ -27,7 +28,7 @@ class MainConfig:
         self.rooms: dict[str, str]          = {}
 
     def read_config_file(self, config: ConfigParser) -> bool:
-        color_log = ColorLog()
+        logger = logging.getLogger("MainConfig")
         try:
             # first, check RS485 Device
             rs485_devices = config[cfg.CONF_RS485_DEVICES] if cfg.CONF_RS485_DEVICES in config else None
@@ -35,13 +36,13 @@ class MainConfig:
             if rs485_devices is not None and len(rs485_devices) >= 1:
                 aircon_section = None
                 for top_device in rs485_devices:
-                    color_log.log(f"device section = {top_device}", Color.Cyan, ColorLog.Level.DEBUG)
+                    logger.debug(f"device section = {top_device}")
                     if top_device == cfg.CONF_AIRCON_DEVICE_NAME.lower():
                         aircon_section = rs485_devices[top_device]
-                color_log.log(f"aircon section is {aircon_section}", Color.Blue, ColorLog.Level.DEBUG)
+                logger.debug(f"aircon section is {aircon_section}")
                 if aircon_section is None:
                     # Legacy config missing is fine if we have options.json
-                    color_log.log("Legacy aircon section not found (using options.json?)", Color.Yellow, ColorLog.Level.INFO)
+                    logger.info("Legacy aircon section not found (using options.json?)")
                     
                 # aircon section
                 if aircon_section is not None:
@@ -53,7 +54,7 @@ class MainConfig:
             # mqtt
             mqtt_section = config[cfg.CONF_MQTT] if cfg.CONF_MQTT in config else None
             if mqtt_section is None:
-                 color_log.log("Legacy MQTT section not found (using options.json?)", Color.Yellow, ColorLog.Level.INFO)
+                 logger.info("Legacy MQTT section not found (using options.json?)")
             else:
                 self.mqtt_anonymous = mqtt_section.get('anonymous', 'False')
                 self.mqtt_server    = mqtt_section.get('server', '')
@@ -61,17 +62,17 @@ class MainConfig:
                 self.mqtt_id        = mqtt_section.get('username', '')
                 self.mqtt_pw        = mqtt_section.get('password', '')
         except Exception as e:
-            color_log.log(f"Error in reading config file.[{e}]", Color.Red, ColorLog.Level.CRITICAL)
+            logger.critical(f"Error in reading config file.[{e}]")
             return False
         return True
 
     def validate(self) -> bool:
-        color_log = ColorLog()
+        logger = logging.getLogger("MainConfig")
         if not self.mqtt_server:
-            color_log.log("MQTT Server is not configured!", Color.Red)
+            logger.error("MQTT Server is not configured!")
             return False
         if not self.aircon_server:
-            color_log.log("Aircon Server is not configured!", Color.Red)
+            logger.error("Aircon Server is not configured!")
             return False
         return True
 
@@ -84,16 +85,16 @@ class MainConfig:
         log_partial_debug   = os.getenv('PARTIAL_DEBUG')
         temperature_adjust  = os.getenv('TEMPERATURE_ADJUST')
 
-        color_log = ColorLog()
-        color_log.log(f"Environment variables Loaded, "
+        temperature_adjust  = os.getenv('TEMPERATURE_ADJUST')
+
+        logger = logging.getLogger("MainConfig")
+        logger.debug(f"Environment variables Loaded, "
                       f"mqtt_server={mqtt_server}, "
                       f"mqtt_port={mqtt_port}, "
                       f"lgac_server={lgac_server}, "
                       f"lgac_port={lgac_port}, "
                       f"log_level={log_level}"
-                      f"temperature_adjust={temperature_adjust}",
-                      Color.Cyan,
-                      ColorLog.Level.DEBUG)
+                      f"temperature_adjust={temperature_adjust}")
 
         if mqtt_server:
             self.mqtt_server = mqtt_server
@@ -110,7 +111,7 @@ class MainConfig:
             cfg.TEMPERATURE_ADJUST = temperature_adjust
 
         if log_partial_debug and log_partial_debug != 'false':
-            color_log.set_partial_debug()
+            pass # Partial debug not supported in standard logging yet
             
         env_min_temp = os.getenv('MIN_TEMP')
         if env_min_temp:
@@ -175,13 +176,13 @@ class MainConfig:
         if not os.path.exists(options_path):
             return
 
-        color_log = ColorLog()
         try:
             import json
             with open(options_path, 'r') as f:
                 options = json.load(f)
             
-            color_log.log(f"Loading configuration from {options_path}...", Color.Cyan)
+            logger = logging.getLogger("MainConfig")
+            logger.info(f"Loading configuration from {options_path}...")
             
             if 'lg_server_ip' in options: self.aircon_server = options['lg_server_ip']
             if 'lg_server_port' in options: self.aircon_port = str(options['lg_server_port'])
@@ -204,11 +205,12 @@ class MainConfig:
                 for item in rooms_data:
                     if 'name' in item and 'id' in item:
                         new_rooms[f"{int(item['id']):02x}"] = item['name']
-                if new_rooms:
+            if new_rooms:
                     self.rooms = new_rooms
                     cfg.SYSTEM_ROOM_AIRCON = new_rooms # Global sync
             
-            color_log.log("Configuration loaded from options.json successfully.", Color.Green)
+            logger.info("Configuration loaded from options.json successfully.")
 
         except Exception as e:
-            color_log.log(f"Failed to load options.json: {e}", Color.Yellow)
+            logger = logging.getLogger("MainConfig")
+            logger.warning(f"Failed to load options.json: {e}")

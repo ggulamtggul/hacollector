@@ -1,5 +1,4 @@
-import asyncio
-import configparser
+import logging
 import pathlib
 import sys
 
@@ -10,7 +9,7 @@ from classes.appconf import MainConfig
 from classes.hub import Hub
 from classes.lgac485 import LGACPacketHandler
 from classes.mqtt import MqttHandler
-from classes.utils import Color, ColorLog
+from classes.utils import Color, setup_logging
 from consts import DEVICE_AIRCON, SW_VERSION_STRING
 
 
@@ -26,15 +25,12 @@ async def heartbeat():
 async def main():
     loop = asyncio.get_running_loop()
     root_dir = pathlib.Path.cwd()
-    color_log: ColorLog
+    
+    # 로그 설정 (1차)
+    setup_logging(cfg.CONF_LOGLEVEL)
+    logger = logging.getLogger("main")
 
-    # 로그 준비
-    color_log = ColorLog(cfg.CONF_LOGFILE)
-    if not color_log.prepare_logs(root=root_dir, sub_path='log', file_name=cfg.CONF_LOGFILE):
-        sys.exit(1)
-    color_log.set_level(cfg.CONF_LOGLEVEL)
-
-    color_log.log(f"Starting...{SW_VERSION_STRING}", Color.Yellow)
+    logger.info(f"Starting...{SW_VERSION_STRING}")
 
     # 설정 파일 읽기
     app_config = MainConfig()
@@ -52,10 +48,12 @@ async def main():
     app_config.read_config_file(config)
 
     # Validate Final Configuration
+    # Validate Final Configuration
     if not app_config.validate():
-        color_log.log("Configuration is invalid! Missing Critical Fields.", Color.Red)
+        logger.error("Configuration is invalid! Missing Critical Fields.")
         sys.exit(1)
-    color_log.set_level(app_config.log_level)
+    # Re-setup logging with configured level
+    setup_logging(app_config.log_level)
 
     # 핸들러 초기화
     aircon = LGACPacketHandler(app_config, loop)
@@ -67,13 +65,13 @@ async def main():
 
     def prepare_reconnect():
         # Critical Error -> Exit to let Supervisor restart us
-        color_log.log("Critical Connection Failure. Exiting for restart...", Color.Red)
+        logger.error("Critical Connection Failure. Exiting for restart...")
         mqtt.set_ignore_handling()
         close_all_devices_sockets()
         mqtt.cleanup()
         sys.exit(1)
 
-    color_log.log(
+    logger.info(
         f"{cfg.CONF_AIRCON_DEVICE_NAME} Configuration: "
         f"[{app_config.aircon_server}:{app_config.aircon_port}]"
     )
@@ -93,7 +91,7 @@ async def main():
     enabled_list.extend(aircon.enabled_device_list)
     mqtt.set_enabled_list(enabled_list)
 
-    color_log.log("Now entering main loop!", Color.Green, ColorLog.Level.DEBUG)
+    logger.debug("Now entering main loop!")
 
     try:
         mqtt.connect_mqtt()
@@ -101,7 +99,7 @@ async def main():
         await asyncio.sleep(1.0)
         await mqtt.homeassistant_device_discovery(initial=True)
     except Exception as e:
-        color_log.log(f"Error connecting MQTT Server: {e}", Color.Red, ColorLog.Level.CRITICAL)
+        logger.critical(f"Error connecting MQTT Server: {e}")
         sys.exit(1)
 
     # 메인 태스크 실행
@@ -115,12 +113,12 @@ async def main():
     try:
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:
-        color_log.log("Tasks Cancelled.", Color.Yellow)
+        logger.warning("Tasks Cancelled.")
     except Exception as e:
-        color_log.log(f"Critical Error in Main Loop: {e}", Color.Red)
+        logger.error(f"Critical Error in Main Loop: {e}")
         sys.exit(1)
 
-    color_log.log("End of Program Session.", Color.Blue)
+    logger.info("End of Program Session.")
 
 
 if __name__ == '__main__':
