@@ -139,7 +139,6 @@ class Discovery:
             if isinstance(room_aircon, Aircon):
                 room_name = room_aircon.room_name
                 if room_name is not None:
-                if room_name is not None:
                     # make_topic_and_payload_for_discovery now returns a list of (topic, payload) tuples
                     entities = self.make_topic_and_payload_for_discovery(
                         kind=cfg.HA_CLIMATE, room=room_name, device=DEVICE_AIRCON, icon_name=MQTT_ICON_AIRCON, uid=room_aircon.id

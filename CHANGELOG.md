@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.13
+- **Hotfix**: Fixed IndentationError in `mqtt.py` that prevented startup in v1.3.12.
+
 ## 1.3.12
 - **Performance**: Improved startup speed by prioritizing configured rooms during discovery. Full range scan (0x00-0x0F) is now optional via `full_scan_on_boot: true`.
 - **Feature**: Added `sensor.lg_aircon_..._temperature` entity for easier statistics tracking.
