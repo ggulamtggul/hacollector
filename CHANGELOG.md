@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.12
+- **Performance**: Improved startup speed by prioritizing configured rooms during discovery. Full range scan (0x00-0x0F) is now optional via `full_scan_on_boot: true`.
+- **Feature**: Added `sensor.lg_aircon_..._temperature` entity for easier statistics tracking.
+- **Feature**: Implemented per-device Availability. If a specific indoor unit stops responding, only that unit is marked `unavailable` in Home Assistant.
+
 ## 1.3.11
 - **Fix**: Corrected RS485 Packet Hunting header from `0x80` to `0x10`. Log analysis confirmed that response packets start with `0x10`.
 - **Cleanup**: Removed verbose debug logs (`RX Raw`) introduced in v1.3.10 now that the protocol is verified.

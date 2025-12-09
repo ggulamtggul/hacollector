@@ -250,6 +250,8 @@ class LGACPacketHandler:
         self.log                        = ColorLog()
         self.scan_interval              = config.scan_interval if config else cfg.WALLPAD_SCAN_INTERVAL_TIME
         self._recv_buffer: bytearray    = bytearray()
+        self.config = config
+        self.notify_availability: Callable[[str, str], None] | None = None
         self.prepare_enabled()
 
     def sync_close_socket(self, loop):
@@ -257,6 +259,9 @@ class LGACPacketHandler:
 
     def set_notify_function(self, change_aircon_status):
         self.notify_to_homeassistant: Callable[[str, str, Aircon.Info], None] = change_aircon_status
+
+    def set_availability_function(self, publish_availability):
+        self.notify_availability: Callable[[str, str], None] = publish_availability
 
     def prepare_enabled(self):
         for r_id, r_name in self.rooms.items():
@@ -512,18 +517,36 @@ class LGACPacketHandler:
         return True
 
     async def async_scan_all_devices(self):
-        self.log.log("Starting Auto Discovery Scan (0x00 - 0x0F)...", Color.Cyan)
+        # 1. Targeted Scan (Fast Boot)
+        target_ids = sorted([int(x, 16) for x in self.rooms.keys()])
+        self.log.log(f"Starting Targeted Discovery Scan: {[f'0x{i:02x}' for i in target_ids]}", Color.Cyan)
+        
         found_devices = []
         
-        for id in range(16):  # 0x00 to 0x0F
+        # Scan configured rooms first
+        for id in target_ids:
             info = await self.async_get_current_status(id, count_error=False)
             if self._is_valid_info(info, id):
                 self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
                 found_devices.append(id)
-            
-            # Slow down scan to prevent timeouts (User Request)
-            await asyncio.sleep(1.5)
-        
+            # Scan delay
+            await asyncio.sleep(1.0) # slightly faster for targeted
+
+        # 2. Full Scan (Optional)
+        if hasattr(self, 'config') and self.config.full_scan_on_boot:
+             self.log.log("Starting Full Range Scan (0x00 - 0x0F) as requested...", Color.Cyan)
+             for id in range(16):
+                 if id in target_ids:
+                     continue # Already scanned
+                 
+                 info = await self.async_get_current_status(id, count_error=False)
+                 if self._is_valid_info(info, id):
+                     self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
+                     found_devices.append(id)
+                 await asyncio.sleep(1.0)
+        else:
+            self.log.log("Skipping full range scan (enabled 'full_scan_on_boot' to scan 0x00-0x0F)", Color.Cyan, ColorLog.Level.DEBUG)
+
         if found_devices:
             self.log.log(f"Scan Complete. Found devices at IDs: {[f'0x{i:02x}' for i in found_devices]}", Color.Cyan)
             self.log.log("Please update your configuration with these IDs.", Color.Cyan)
@@ -536,6 +559,16 @@ class LGACPacketHandler:
         self.log.log(f"Aircorn Room name = {device_obj.room_name}, Number = {no}", Color.White, ColorLog.Level.DEBUG)
 
         aircon_info: Aircon.Info | None  = await self.async_get_current_status(no)
+        
+        if self.notify_availability:
+             status = PAYLOAD_ONLINE if aircon_info else PAYLOAD_OFFLINE
+             # Only publish if status changed or periodically?
+             # For now, simplistic approach: publish every scan is safe (MQTT deduplicates usually, or we trust Paho)
+             # Better: Track last status in Aircon object to reduce traffic.
+             if device_obj.last_availability_status != status:
+                 self.notify_availability(device_obj.room_name, status)
+                 device_obj.last_availability_status = status
+
         if aircon_info:
             self.notify_to_homeassistant(device_obj.name, device_obj.room_name, aircon_info)
 

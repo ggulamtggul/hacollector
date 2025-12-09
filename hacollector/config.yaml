@@ -1,5 +1,5 @@
 name: "HA Collector"
-version: "1.3.11"
+version: "1.3.12"
 slug: "hacollector"
 description: "LG System Aircon (RS485) Collector"
 url: "https://github.com/ggulamtggul/hacollector"
@@ -26,6 +26,7 @@ options:
   scan_interval: 20
   rs485_timeout: 2.0
   persistent_connection: true
+  full_scan_on_boot: false
   log_level: "info"
 schema:
   lg_server_ip: str
@@ -42,6 +43,7 @@ schema:
   scan_interval: int
   rs485_timeout: float
   persistent_connection: bool
+  full_scan_on_boot: bool
   log_level: str
 map:
   - config:rw

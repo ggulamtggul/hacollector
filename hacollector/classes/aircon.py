@@ -32,7 +32,9 @@ class Aircon:
         self.fanmove: str       = ''
         self.fanmode: str       = ''
         self.current_temp: float = 27.0
+        self.current_temp: float = 27.0
         self.target_temp: int   = 27
+        self.last_availability_status: str = ''
 
     def set_initial_state(self) -> None:
         self.scan.reset()

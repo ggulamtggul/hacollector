@@ -80,6 +80,7 @@ async def main():
 
     # 콜백 연결
     aircon.set_notify_function(mqtt.change_aircon_status)
+    aircon.set_availability_function(mqtt.publish_availability)
     mqtt.set_aircon_mqtt_handler(aircon.handle_aircon_mqtt_message)
     mqtt.set_reconnect_action(prepare_reconnect)
 

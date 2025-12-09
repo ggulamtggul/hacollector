@@ -23,6 +23,7 @@ class MainConfig:
         self.scan_interval: float           = cfg.WALLPAD_SCAN_INTERVAL_TIME
         self.rs485_timeout: float           = 2.0
         self.persistent_connection: bool    = True
+        self.full_scan_on_boot: bool        = False
         self.rooms: dict[str, str]          = {}
 
     def read_config_file(self, config: ConfigParser) -> bool:
@@ -193,6 +194,7 @@ class MainConfig:
             if 'scan_interval' in options: self.scan_interval = float(options['scan_interval'])
             if 'rs485_timeout' in options: self.rs485_timeout = float(options['rs485_timeout'])
             if 'persistent_connection' in options: self.persistent_connection = bool(options['persistent_connection'])
+            if 'full_scan_on_boot' in options: self.full_scan_on_boot = bool(options['full_scan_on_boot'])
             if 'log_level' in options: self.log_level = options['log_level']
             
             if 'rooms' in options:
