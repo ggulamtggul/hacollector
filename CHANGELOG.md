@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+- **HA Integration**: Added `state_class: measurement` and `device_class: temperature` to MQTT discovery. Home Assistant now displays Statistics Graphs for temperature history.
+- **Process Stability**: Removed internal restart loop. The collector now exits cleanly on critical errors (`exit 1`), allowing HA Supervisor to handle restarts and logging natively.
+- **Healthcheck**: Implemented a "Smart" Healthcheck. The main loop touches `/tmp/healthy` every 30s. Docker now restarts the container if the application hangs (Deadlock), not just if the process disappears.
+- **Configuration**: Added `rs485_timeout` option (default 0.5s) to `options.json` for tuning RS485 read sensitivity.
+
 ## 1.2.0
 - **Robustness (RS485)**: Implemented "Sliding Window" / "Packet Hunting" algorithm. The collector now intelligently searches for the packet header (`0x80`) in the data stream, discarding noise or shifted bytes. This prevents "Deadlock" situations caused by byte shifts and enables self-healing communication.
 

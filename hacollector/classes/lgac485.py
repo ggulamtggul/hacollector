@@ -250,6 +250,7 @@ class LGACPacketHandler:
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
         self.log                        = ColorLog()
         self.scan_interval              = config.scan_interval if config else cfg.WALLPAD_SCAN_INTERVAL_TIME
+        self.rs485_timeout              = config.rs485_timeout if config else 0.5
         self.prepare_enabled()
 
     def sync_close_socket(self, loop):
@@ -346,8 +347,8 @@ class LGACPacketHandler:
 
     async def async_read_until_tail(self, allow_reconnect: bool = True) -> bytes:
         # 1. Packet Hunting: Ensure we are at the start of a packet (0x80)
-        # Verify header is present within 1.0 second (sliding window)
-        if await self.comm.async_ensure_header(LGACPacket._READER_HEADER_MAGIC, timeout=1.0):
+        # Verify header is present using configured timeout (sliding window)
+        if await self.comm.async_ensure_header(LGACPacket._READER_HEADER_MAGIC, timeout=self.rs485_timeout):
             # 2. Read the full body (including the header we just hunted)
             # async_get_data_direct will read from the buffer first (which starts with header)
             res_packet = await self.comm.async_get_data_direct(LGACPacket._RESPONSE_PACKET_SIZE, reconnect_on_failure=allow_reconnect)

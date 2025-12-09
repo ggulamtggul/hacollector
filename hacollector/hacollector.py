@@ -14,18 +14,25 @@ from classes.utils import Color, ColorLog
 from consts import DEVICE_AIRCON, SW_VERSION_STRING
 
 
-async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
+async def heartbeat():
+    """Touch /tmp/healthy every 30s to signal liveness to Docker."""
+    while True:
+        try:
+            pathlib.Path('/tmp/healthy').touch()
+        except Exception:
+            pass
+        await asyncio.sleep(30)
+
+async def main():
+    loop = asyncio.get_running_loop()
     root_dir = pathlib.Path.cwd()
     color_log: ColorLog
 
     # 로그 준비
-    if first_run:
-        color_log = ColorLog(cfg.CONF_LOGFILE)
-        if not color_log.prepare_logs(root=root_dir, sub_path='log', file_name=cfg.CONF_LOGFILE):
-            sys.exit(1)
-        color_log.set_level(cfg.CONF_LOGLEVEL)
-    else:
-        color_log = ColorLog()
+    color_log = ColorLog(cfg.CONF_LOGFILE)
+    if not color_log.prepare_logs(root=root_dir, sub_path='log', file_name=cfg.CONF_LOGFILE):
+        sys.exit(1)
+    color_log.set_level(cfg.CONF_LOGLEVEL)
 
     color_log.log(f"Starting...{SW_VERSION_STRING}", Color.Yellow)
 
@@ -59,11 +66,12 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
         aircon.sync_close_socket(loop)
 
     def prepare_reconnect():
+        # Critical Error -> Exit to let Supervisor restart us
+        color_log.log("Critical Connection Failure. Exiting for restart...", Color.Red)
         mqtt.set_ignore_handling()
         close_all_devices_sockets()
-        mqtt.cleanup()  # MQTT 종료 처리 추가
-        for task in asyncio.all_tasks(loop):
-            task.cancel()
+        mqtt.cleanup()
+        sys.exit(1)
 
     color_log.log(
         f"{cfg.CONF_AIRCON_DEVICE_NAME} Configuration: "
@@ -84,9 +92,6 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     enabled_list.extend(aircon.enabled_device_list)
     mqtt.set_enabled_list(enabled_list)
 
-    # Device Scan will be performed in main task
-    # await aircon.async_scan_all_devices()
-
     color_log.log("Now entering main loop!", Color.Green, ColorLog.Level.DEBUG)
 
     try:
@@ -99,38 +104,32 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
         sys.exit(1)
 
     # 메인 태스크 실행
-    tasks = asyncio.gather(
-        aircon.async_lgac_main_write_loop(),
-        hub.async_scan_thread(),
-        aircon.async_scan_all_devices()  # Background Scan
-    )
+    tasks = [
+        asyncio.create_task(aircon.async_lgac_main_write_loop()),
+        asyncio.create_task(hub.async_scan_thread()),
+        asyncio.create_task(aircon.async_scan_all_devices()),
+        asyncio.create_task(heartbeat()) # Add Heartbeat
+    ]
+    
     try:
-        await tasks
+        await asyncio.gather(*tasks)
     except asyncio.CancelledError:
-        color_log.log("Tasks Cancelled (Restarting or Stopping).", Color.Yellow)
-        pass
+        color_log.log("Tasks Cancelled.", Color.Yellow)
     except Exception as e:
         color_log.log(f"Critical Error in Main Loop: {e}", Color.Red)
+        sys.exit(1)
 
     color_log.log("End of Program Session.", Color.Blue)
 
 
 if __name__ == '__main__':
-    loop: asyncio.AbstractEventLoop
-    first_run: bool = True
-    while True:
-        try:
-            loop = asyncio.new_event_loop()
-            loop.run_until_complete(main(loop, first_run))
-            loop.close()
-            first_run = False
-            
-            # 재시작 전 대기
-            import time
-            time.sleep(2)
-            
-            color_log = ColorLog()
-            color_log.log("Restarting main loop...", Color.Blue)
-        except KeyboardInterrupt:
-            print("\nUser Stopped Program.")
-            sys.exit(0)
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nUser Stopped Program.")
+        sys.exit(0)
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(f"Fatal Error: {e}")
+        sys.exit(1)

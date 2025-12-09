@@ -100,6 +100,9 @@ class Discovery:
             
             payload[f'curr_{MQTT_TEMP}_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'curr_{MQTT_TEMP}_tpl']        = '{{ value_json.current_temp }}'
+            # HA Statistics & Graph Support
+            payload['device_class']                 = 'temperature'
+            payload['state_class']                  = 'measurement'
             
             payload[f'{MQTT_FAN_MODE}_stat_t']      = f'{aircon_common_topic_str}/{MQTT_STATE}'
             payload[f'{MQTT_FAN_MODE}_stat_tpl']    = '{{ value_json.fan_mode }}'

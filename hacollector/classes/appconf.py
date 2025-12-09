@@ -21,6 +21,7 @@ class MainConfig:
         self.min_temp: int                  = 18
         self.max_temp: int                  = 30
         self.scan_interval: float           = cfg.WALLPAD_SCAN_INTERVAL_TIME
+        self.rs485_timeout: float           = 0.5
         self.rooms: dict[str, str]          = {}
 
     def read_config_file(self, config: ConfigParser) -> bool:
@@ -190,6 +191,7 @@ class MainConfig:
             if 'min_temp' in options: self.min_temp = int(options['min_temp'])
             if 'max_temp' in options: self.max_temp = int(options['max_temp'])
             if 'scan_interval' in options: self.scan_interval = float(options['scan_interval'])
+            if 'rs485_timeout' in options: self.rs485_timeout = float(options['rs485_timeout'])
             if 'log_level' in options: self.log_level = options['log_level']
             
             if 'rooms' in options:
