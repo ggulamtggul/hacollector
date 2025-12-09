@@ -114,7 +114,12 @@ class LGACPacket:
                 self.checksum
             ) = res
             self.set_temp = (self.set_temp & 0x0f) + 0x0f
+            
+            # [Debug] Log raw temp byte
+            raw_temp_byte = self.current_temp
             self.current_temp = cfg.TEMPERATURE_ADJUST + self.calc_temp(self.current_temp)
+            logger.info(f"[TempDebug] Raw: {raw_temp_byte}, Calc: {self.current_temp} (Adj: {cfg.TEMPERATURE_ADJUST})")
+
             self.pipe1_temp = self.calc_temp(self.pipe1_temp)
             self.pipe2_temp = self.calc_temp(self.pipe2_temp)
             self.get_detail_mode()

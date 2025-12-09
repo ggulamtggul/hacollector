@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.22
+- **Debug**: Added explicit INFO logs for temperature packet parsing `[TempDebug]` to troubleshoot non-updating temperature issues.
+
 ## 1.3.21
 - **Hotfix**: Fixed `NameError: name 'ColorLog' is not defined` and `TypeError` in `handle_aircon_mqtt_message`. Replaced remaining legacy logging calls.
 
