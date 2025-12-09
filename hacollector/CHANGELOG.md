@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.9
+- **Fix**: Resolved a race condition where Auto Discovery would skip devices that were being polled by the main loop. Implemented `asyncio.Lock` with timeout to safely serialize RS485 access.
+
 ## 0.9.8
 - **Fix**: Startup blocking issue resolved. Auto-discovery scan now runs in the background, allowing the add-on to report "Online" immediately.
 - **Feature**: Added `min_temp` and `max_temp` options to `config.yaml` (default: 18~30).

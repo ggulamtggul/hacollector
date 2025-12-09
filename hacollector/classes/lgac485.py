@@ -246,7 +246,7 @@ class LGACPacketHandler:
         self.command_queue: Queue       = Queue()
         self.loop: asyncio.AbstractEventLoop
         self.read_error_count           = 0
-        self.send_and_get_state         = False
+        self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
         self.log                        = ColorLog()
         self.prepare_enabled()
 
@@ -369,7 +369,7 @@ class LGACPacketHandler:
             # Do not exit, just let the next loop try to reconnect
             # await asyncio.sleep(5) # Optional delay
 
-        self.send_and_get_state = True
+        self.send_and_get_state: bool = True # Not used anymore but kept for safety if accessed externally, though unlikely.
 
         packet = LGACPacket(None)
         packet.make_new_packet(
@@ -422,7 +422,7 @@ class LGACPacketHandler:
             # However, frequent open/close might be overhead.
             # The original code had `await self.comm.close_async_socket()` in finally.
             await self.comm.close_async_socket()
-            self.send_and_get_state = False
+            # self.send_and_get_state = False
 
         return ret
 
@@ -430,20 +430,31 @@ class LGACPacketHandler:
         aircon_cmd = Aircon.Info(PAYLOAD_STATUS, '', '', '', 25.0, 25)
         self.log.log(f"Get Aircon Status : {aircon_no}", Color.Yellow, ColorLog.Level.DEBUG)
 
-        if not self.send_and_get_state:
-            aircon_info: Aircon.Info | None = await self.async_send_and_get_result(0, aircon_no, aircon_cmd)
-            if aircon_info:
-                self.log.log(f"Returned Get Aircon Status : {aircon_info.opmode})", Color.Yellow, ColorLog.Level.DEBUG)
-                if aircon_info.opmode == PAYLOAD_AUTO:
-                    aircon_info.action = PAYLOAD_ON
-                return aircon_info
+        try:
+             # Wait for lock with timeout to prevent infinite blocking
+            async with asyncio.timeout(5.0): # 5 seconds wait max
+                async with self._lock:
+                    aircon_info: Aircon.Info | None = await self.async_send_and_get_result(0, aircon_no, aircon_cmd)
+                    if aircon_info:
+                        self.log.log(f"Returned Get Aircon Status : {aircon_info.opmode})", Color.Yellow, ColorLog.Level.DEBUG)
+                        if aircon_info.opmode == PAYLOAD_AUTO:
+                            aircon_info.action = PAYLOAD_ON
+                        return aircon_info
+        except asyncio.TimeoutError:
+             self.log.log(f"Timeout waiting for lock in get_status({aircon_no})", Color.Yellow, ColorLog.Level.DEBUG)
         return None
 
     async def async_set_current_mode(self, aircon_no: int, aircon_cmd: Aircon.Info) -> Aircon.Info | None:
         aircon_info: Aircon.Info | None = None
 
-        if not self.send_and_get_state:
-            aircon_info = await self.async_send_and_get_result(0, aircon_no, aircon_cmd)
+        try:
+            # Wait for lock with timeout
+            async with asyncio.timeout(5.0):
+                async with self._lock:
+                    aircon_info = await self.async_send_and_get_result(0, aircon_no, aircon_cmd)
+        except asyncio.TimeoutError:
+             self.log.log(f"Timeout waiting for lock in set_mode({aircon_no})", Color.Yellow, ColorLog.Level.DEBUG)
+             
         return aircon_info
 
     def _is_valid_info(self, info: Aircon.Info | None, id: int, verbose: bool = True) -> bool:
