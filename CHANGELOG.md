@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.0
+- **Robustness (RS485)**: Implemented "Sliding Window" / "Packet Hunting" algorithm. The collector now intelligently searches for the packet header (`0x80`) in the data stream, discarding noise or shifted bytes. This prevents "Deadlock" situations caused by byte shifts and enables self-healing communication.
+
 ## 1.1.2
 - **Bugfix**: Fixed `IndentationError` in `appconf.py` caused by incorrect refactoring of legacy config reading. Removed redundant loop to verify cleaner code structure.
 

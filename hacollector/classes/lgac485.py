@@ -26,6 +26,7 @@ MAX_READ_ERROR_RETRY = 3
 
 class LGACPacket:
     _WRITER_HEADER_MAGIC    = b'\x80\x00\xa3'
+    _READER_HEADER_MAGIC    = b'\x80' # Assuming 0x80 is the start byte for response too
     _RESPONSE_PACKET_SIZE   = 16
     FMT_body_read           = '>BBBBBBBBBBBBBBBB'
     FMT_body_write          = '>BBBB'
@@ -344,9 +345,16 @@ class LGACPacketHandler:
             self.log.log(f"[From HA]Error [{e}] {topic} = {payload}", Color.Red)
 
     async def async_read_until_tail(self, allow_reconnect: bool = True) -> bytes:
-        # Optimized reading: try to read the full body size at once
-        res_packet = await self.comm.async_get_data_direct(LGACPacket._RESPONSE_PACKET_SIZE, reconnect_on_failure=allow_reconnect)
-        return res_packet
+        # 1. Packet Hunting: Ensure we are at the start of a packet (0x80)
+        # Verify header is present within 1.0 second (sliding window)
+        if await self.comm.async_ensure_header(LGACPacket._READER_HEADER_MAGIC, timeout=1.0):
+            # 2. Read the full body (including the header we just hunted)
+            # async_get_data_direct will read from the buffer first (which starts with header)
+            res_packet = await self.comm.async_get_data_direct(LGACPacket._RESPONSE_PACKET_SIZE, reconnect_on_failure=allow_reconnect)
+            return res_packet
+        else:
+            # Header not found within timeout
+            return b''
 
     async def async_read_one_chunk(self, allow_reconnect: bool = True) -> bytes | None:
         try:

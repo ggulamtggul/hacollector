@@ -205,3 +205,59 @@ class TCPComm:
                 except Exception:
                     pass
         return buffer
+
+    async def async_ensure_header(self, header: bytes, timeout: float = 1.0) -> bool:
+        """
+        Sliding Window / Packet Hunting:
+        Read data until the buffer starts with `header`.
+        Discards any bytes received before the header (noise/shifted bytes).
+        Returns True if header is found at the start of buffer, False on timeout/error.
+        """
+        await self.wait_safe_communication()
+        start_time = time.monotonic()
+        
+        while (time.monotonic() - start_time) < timeout:
+            # 1. Check if we already have data
+            if self.read_buffer:
+                # Find header index
+                idx = self.read_buffer.find(header)
+                if idx != -1:
+                    # Header found!
+                    if idx > 0:
+                        # Discard garbage before header
+                        ColorLog().log(f"Header Hunt: Discarding {idx} bytes of noise: {self.read_buffer[:idx].hex()}", Color.Yellow, ColorLog.Level.WARN)
+                        self.read_buffer = self.read_buffer[idx:]
+                    return True
+                else:
+                    # Header not found in current buffer
+                    # Optimization: Keep only the tail that *could* be a partial header?
+                    # For single byte header, we can discard the whole buffer if it's not there.
+                    # For multi-byte header, we must be careful.
+                    # Assuming single byte header for now or simple hunting.
+                    if len(header) == 1:
+                        # Safe to discard all if header not found
+                        # But let's assume valid data is coming.
+                        # Discarding all might be too aggressive if packet is split?
+                        # No, if header is 1 byte and not in buffer, then buffer is all garbage.
+                        self.read_buffer = b''
+                    else:
+                        # Keep last len(header)-1 bytes just in case split header
+                        keep_len = len(header) - 1
+                        if len(self.read_buffer) > keep_len:
+                            self.read_buffer = self.read_buffer[-keep_len:]
+            
+            # 2. Read more data
+            try:
+                assert self.reader is not None
+                # Read small chunk to keep checking
+                chunk = await asyncio.wait_for(self.reader.read(self.buffer_size), timeout=0.5)
+                if chunk == b'':
+                     self.connection_reset = True
+                     return False
+                self.read_buffer += chunk
+            except asyncio.TimeoutError:
+                continue # loop to check timeout
+            except Exception:
+                return False
+                
+        return False
