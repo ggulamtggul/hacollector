@@ -448,11 +448,27 @@ class LGACPacketHandler:
             if info:
                 self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
                 found_devices.append(id)
+                
+                # Check if this ID is already configured
+                is_configured = False
+                for aircon in self.aircon:
+                    if aircon.id == id:
+                        is_configured = True
+                        break
+                
+                # If not configured, auto-register it
+                if not is_configured:
+                    new_room_name = f"auto_room_{id:02x}"
+                    self.log.log(f"Auto-registering new device: {new_room_name} (ID: 0x{id:02x})", Color.Yellow)
+                    new_aircon = Aircon(new_room_name)
+                    new_aircon.id = id
+                    new_aircon.set_initial_state()
+                    self.aircon.append(new_aircon)
+                    
             await asyncio.sleep(0.2)
         
         if found_devices:
             self.log.log(f"Scan Complete. Found devices at IDs: {[f'0x{i:02x}' for i in found_devices]}", Color.Cyan)
-            self.log.log("Please update your configuration with these IDs.", Color.Cyan)
         else:
             self.log.log("Scan Complete. No devices found.", Color.Yellow)
 

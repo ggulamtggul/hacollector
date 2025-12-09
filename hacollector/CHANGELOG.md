@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.4
+- **New Feature**: Auto Registration! Devices found during startup scan that are not in the config are now automatically added to Home Assistant (e.g., `LG Aircon auto_room_02`).
+
 ## 0.9.3
 - **Hotfix**: Fixed configuration UI disappearing due to missing schema.
 
