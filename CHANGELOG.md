@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.1
+- **Hotfix**: Resolved "Configuration is invalid!" startup crash caused by missing `hacollector.conf`. Configuration loading order is now corrected to prioritize `options.json` and treat legacy file as optional.
+
 ## 1.1.0
 - **Stable Unique ID**: Bind Home Assistant Unique ID to RS485 Hardware ID (uid) instead of changeable Room Name. Prevents "Zombie entities" when renaming rooms.
 - **Async MQTT Discovery**: Removed blocking `time.sleep` calls during discovery, preventing Event Loop lag.

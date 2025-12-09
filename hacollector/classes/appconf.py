@@ -36,9 +36,9 @@ class MainConfig:
                         aircon_section = rs485_devices[top_device]
                 color_log.log(f"aircon section is {aircon_section}", Color.Blue, ColorLog.Level.DEBUG)
                 if aircon_section is None:
-                    color_log.log("aircon section must be exist.", Color.Red, ColorLog.Level.CRITICAL)
-                    return False
-                
+                    # Legacy config missing is fine if we have options.json
+                    color_log.log("Legacy aircon section not found (using options.json?)", Color.Yellow, ColorLog.Level.INFO)
+                    
                 # aircon section
                 if aircon_section is not None:
                     aircon_info = config[aircon_section]
@@ -46,11 +46,11 @@ class MainConfig:
                     self.aircon_port        = aircon_info['port']
                     self.aircon_devicename  = aircon_info['device']
                 # mqtt
-                mqtt_section = config[cfg.CONF_MQTT]
+                mqtt_section = config[cfg.CONF_MQTT] if cfg.CONF_MQTT in config else None
                 if mqtt_section is None:
-                    color_log.log("This application need MQTT config.", Color.Red, ColorLog.Level.CRITICAL)
-                    return False
-                for item in mqtt_section:
+                     color_log.log("Legacy MQTT section not found (using options.json?)", Color.Yellow, ColorLog.Level.INFO)
+                else:
+                    for item in mqtt_section:
                     self.mqtt_anonymous = mqtt_section['anonymous']
                     self.mqtt_server    = mqtt_section['server']
                     self.mqtt_port      = mqtt_section['port']
@@ -58,6 +58,16 @@ class MainConfig:
                     self.mqtt_pw        = mqtt_section['password']
         except Exception as e:
             color_log.log(f"Error in reading config file.[{e}]", Color.Red, ColorLog.Level.CRITICAL)
+            return False
+        return True
+
+    def validate(self) -> bool:
+        color_log = ColorLog()
+        if not self.mqtt_server:
+            color_log.log("MQTT Server is not configured!", Color.Red)
+            return False
+        if not self.aircon_server:
+            color_log.log("Aircon Server is not configured!", Color.Red)
             return False
         return True
 

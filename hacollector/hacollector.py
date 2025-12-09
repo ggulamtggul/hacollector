@@ -30,18 +30,24 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     color_log.log(f"Starting...{SW_VERSION_STRING}", Color.Yellow)
 
     # 설정 파일 읽기
+    app_config = MainConfig()
+    
+    # .env 로드 및 로그레벨 반영 (Prioritize Options/Env)
+    load_dotenv()
+    app_config.load_env_values()
+
+    # 설정 파일 읽기 (Legacy Support, Optional)
     conf_path = root_dir / cfg.CONF_FILE
     config = configparser.ConfigParser()
     config.read(conf_path)
+    
+    # Merge Legacy Config if exists
+    app_config.read_config_file(config)
 
-    app_config = MainConfig()
-    if not app_config.read_config_file(config):
-        color_log.log("Configuration is invalid!", Color.Red)
+    # Validate Final Configuration
+    if not app_config.validate():
+        color_log.log("Configuration is invalid! Missing Critical Fields.", Color.Red)
         sys.exit(1)
-
-    # .env 로드 및 로그레벨 반영
-    load_dotenv()
-    app_config.load_env_values()
     color_log.set_level(app_config.log_level)
 
     # 핸들러 초기화
