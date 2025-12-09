@@ -116,8 +116,8 @@ class TCPComm:
         color_log = ColorLog()
         try:
             assert self.writer is not None
-            # Debug: Log what we are writing
-            color_log.log(f"Writing {len(data)} bytes: {data.hex()}", Color.Cyan, ColorLog.Level.DEBUG)
+            # Debug: Log what we are writing (Visible in INFO for diagnostics)
+            color_log.log(f"Writing {len(data)} bytes: {data.hex()}", Color.Cyan, ColorLog.Level.INFO)
             self.writer.write(data)
             await self.writer.drain()
             self.last_accessed_time = time.monotonic()

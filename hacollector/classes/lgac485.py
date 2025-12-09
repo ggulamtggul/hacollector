@@ -251,6 +251,7 @@ class LGACPacketHandler:
         self.log                        = ColorLog()
         self.scan_interval              = config.scan_interval if config else cfg.WALLPAD_SCAN_INTERVAL_TIME
         self.rs485_timeout              = config.rs485_timeout if config else 0.5
+        self.persistent_connection      = config.persistent_connection if config else True
         self.prepare_enabled()
 
     def sync_close_socket(self, loop):
@@ -436,13 +437,11 @@ class LGACPacketHandler:
             if count_error:
                 await handle_max_read_error()
         finally:
-            # We don't necessarily need to close socket every time if we want persistent connection,
-            # but the original logic seemed to prefer closing or maybe it was just for safety.
-            # Let's keep close for now to match original behavior but async.
             # Actually, for RS485/TCP bridges, keeping connection might be better, but let's stick to safe close if that was the intent.
             # However, frequent open/close might be overhead.
             # The original code had `await self.comm.close_async_socket()` in finally.
-            # await self.comm.close_async_socket()
+            if not self.persistent_connection:
+                 await self.comm.close_async_socket()
             pass
             # self.send_and_get_state = False
 

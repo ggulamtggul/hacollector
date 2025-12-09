@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.6
+- **Feature**: Added `persistent_connection` option (Default: `true`). Set this to `false` to revert to the legacy behavior of closing the TCP connection after every command (might be more stable for some RS485 converters).
+- **Log**: Elevated "Writing X bytes..." log to `INFO` level to ensure outbound traffic is visible even at default log levels.
+
 ## 1.3.5
 - **Debug**: Added logging to the Write path (`Writing X bytes...`) to confirm requests are actually being sent to the RS485 converter. This will help determine if the connection is silent or if writes are failing silently.
 
