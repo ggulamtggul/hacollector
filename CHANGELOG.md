@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.24
+- **Cleanup**: Removed temporary `[TempDebug]` logs as temperature updates are confirmed working.
+
 ## 1.3.23
 - **Stability**: Added `asyncio.timeout` to socket write operations (`comm.py`) to prevent potential deadlocks.
 - **Stability**: Added buffer size limit (`lgac485.py`) to prevent memory leaks from packet noise.
