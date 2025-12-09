@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.19
+- **Hotfix**: Fixed `NameError: name 'configparser' is not defined`. Restored missing `import configparser` in `hacollector.py`.
+
 ## 1.3.18
 - **Hotfix**: Fixed critical `NameError: name 'asyncio' is not defined` crash on startup. Restored missing `import asyncio` in `hacollector.py` that was accidentally removed during logging refactor.
 
