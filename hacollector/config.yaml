@@ -1,5 +1,5 @@
 name: "HA Collector"
-version: "0.9.2"
+version: "0.9.3"
 slug: "hacollector"
 description: "LG System Aircon (RS485) Collector"
 url: "https://github.com/ggulamtggul/hacollector"
@@ -16,6 +16,19 @@ options:
   mqtt_port: 1883
   mqtt_username: ""
   mqtt_password: ""
+  rooms:
+    - name: livingroom
+      id: 0
+    - name: bedroom
+      id: 1
+  log_level: "info"
+schema:
+  lg_server_ip: str
+  lg_server_port: int
+  mqtt_server: str
+  mqtt_port: int
+  mqtt_username: str
+  mqtt_password: str
   rooms:
     - name: str
       id: int

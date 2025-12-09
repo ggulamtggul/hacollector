@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.3
+- **Hotfix**: Fixed configuration UI disappearing due to missing schema.
+
 ## 0.9.2
 - **Breaking Change**: Configuration format for `rooms` changed to support explicit RS485 IDs (e.g., `id: 0`).
 - **New Feature**: Auto Discovery at startup to scan and log available RS485 IDs.
