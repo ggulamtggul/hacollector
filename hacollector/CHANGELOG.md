@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.15
+- **Improvement**: Enabled persistent TCP connection. Previously, the add-on closed and re-opened the socket for every packet, causing excessive "Connecting..." logs. Now the connection is kept alive, significantly reducing log noise and overhead.
+
+## 0.9.14
+- **Improvement**: Optimized socket handling during Auto Discovery. Read timeouts for non-existent devices no longer trigger a socket reconnection, reducing log noise and overhead.
+
 ## 0.9.13
 - **Fix**: Resolved `IndentationError` in `mqtt.py` introduced in v0.9.12 hotfix. Cleaned up malformed class definition.
 

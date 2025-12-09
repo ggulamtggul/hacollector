@@ -340,14 +340,14 @@ class LGACPacketHandler:
         except Exception as e:
             self.log.log(f"[From HA]Error [{e}] {topic} = {payload}", Color.Red)
 
-    async def async_read_until_tail(self) -> bytes:
+    async def async_read_until_tail(self, allow_reconnect: bool = True) -> bytes:
         # Optimized reading: try to read the full body size at once
-        res_packet = await self.comm.async_get_data_direct(LGACPacket._RESPONSE_PACKET_SIZE)
+        res_packet = await self.comm.async_get_data_direct(LGACPacket._RESPONSE_PACKET_SIZE, reconnect_on_failure=allow_reconnect)
         return res_packet
 
-    async def async_read_one_chunk(self) -> bytes | None:
+    async def async_read_one_chunk(self, allow_reconnect: bool = True) -> bytes | None:
         try:
-            body = await self.async_read_until_tail()
+            body = await self.async_read_until_tail(allow_reconnect)
             if len(body) != LGACPacket._RESPONSE_PACKET_SIZE:
                 # self.log.log("Packet size is not MATCH! - retry!", Color.Blue, ColorLog.Level.DEBUG)
                 return None
@@ -387,7 +387,7 @@ class LGACPacketHandler:
             ok: bool = await self.comm.async_write_one_chunk(send_packet)
             if ok:
                 await asyncio.sleep(cfg.RS485_WRITE_INTERVAL_SEC)
-                read_packet = await self.async_read_one_chunk()
+                read_packet = await self.async_read_one_chunk(allow_reconnect=count_error)
                 if read_packet:
                     self.log.log(f"Read From LGAC ==> {read_packet.hex()}", Color.Green, ColorLog.Level.DEBUG)
 
@@ -425,7 +425,8 @@ class LGACPacketHandler:
             # Actually, for RS485/TCP bridges, keeping connection might be better, but let's stick to safe close if that was the intent.
             # However, frequent open/close might be overhead.
             # The original code had `await self.comm.close_async_socket()` in finally.
-            await self.comm.close_async_socket()
+            # await self.comm.close_async_socket()
+            pass
             # self.send_and_get_state = False
 
         return ret

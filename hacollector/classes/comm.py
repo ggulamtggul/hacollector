@@ -175,7 +175,7 @@ class TCPComm:
             await self.close_async_socket()
             return b''
 
-    async def async_get_data_direct(self, length: int) -> bytes:
+    async def async_get_data_direct(self, length: int, reconnect_on_failure: bool = True) -> bytes:
         """
         Read up to `length` bytes directly from the socket with a small timeout.
         Returns b'' on timeout or EOF. Sets connection_reset on ECONNRESET.
@@ -186,7 +186,9 @@ class TCPComm:
             buffer = await asyncio.wait_for(self.reader.read(length), timeout=2.0)
         except asyncio.TimeoutError:
             color_log = ColorLog()
-            color_log.log("Timeout waiting for data from socket.", Color.Yellow, ColorLog.Level.WARN)
+            # Suppress log if we don't plan to reconnect (expected timeout)
+            if reconnect_on_failure:
+                color_log.log("Timeout waiting for data from socket.", Color.Yellow, ColorLog.Level.WARN)
             return b''
         except IOError as e:
             buffer = b''
@@ -195,10 +197,11 @@ class TCPComm:
         except Exception:
             buffer = b''
         if buffer == b'':
-            # proactively reconnect for next operation
-            await self.close_async_socket()
-            try:
-                await self.connect_async_socket()
-            except Exception:
-                pass
+            # proactively reconnect for next operation only if requested
+            if reconnect_on_failure:
+                await self.close_async_socket()
+                try:
+                    await self.connect_async_socket()
+                except Exception:
+                    pass
         return buffer
