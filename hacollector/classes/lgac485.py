@@ -362,7 +362,7 @@ class LGACPacketHandler:
             self.log.log(f"[Error LGAC rs485] : {e} : Cannot read From LGAC!", Color.Yellow, ColorLog.Level.WARN)
         return None
 
-    async def async_send_and_get_result(self, group_no: int, id: int, airconset: Aircon.Info) -> Aircon.Info | None:
+    async def async_send_and_get_result(self, group_no: int, id: int, airconset: Aircon.Info, count_error: bool = True) -> Aircon.Info | None:
         async def handle_max_read_error():
             self.log.log("Too many read errors. Closing socket to force reconnection...", Color.Red, ColorLog.Level.WARN)
             await self.comm.close_async_socket()
@@ -404,16 +404,19 @@ class LGACPacketHandler:
                     self.read_error_count = 0
                 else:
                     self.log.log("Read From LGAC FAIL!", Color.Green, ColorLog.Level.WARN)
-                    self.read_error_count += 1
-                    if self.read_error_count > MAX_READ_ERROR_RETRY:
-                        self.read_error_count = 0
-                        await handle_max_read_error()
+                    if count_error:
+                        self.read_error_count += 1
+                        if self.read_error_count > MAX_READ_ERROR_RETRY:
+                            self.read_error_count = 0
+                            await handle_max_read_error()
             else:
                 self.log.log(f"Write to LGAC FAIL!{send_packet.hex()}", Color.Yellow, ColorLog.Level.WARN)
-                await handle_max_read_error()
+                if count_error:
+                    await handle_max_read_error()
         except Exception as e:
             self.log.log(f"Something wrong in Write and read Aircon({e})", Color.Red, ColorLog.Level.CRITICAL)
-            await handle_max_read_error()
+            if count_error:
+                await handle_max_read_error()
         finally:
             # We don't necessarily need to close socket every time if we want persistent connection,
             # but the original logic seemed to prefer closing or maybe it was just for safety.
@@ -426,7 +429,7 @@ class LGACPacketHandler:
 
         return ret
 
-    async def async_get_current_status(self, aircon_no: int) -> Aircon.Info | None:
+    async def async_get_current_status(self, aircon_no: int, count_error: bool = True) -> Aircon.Info | None:
         aircon_cmd = Aircon.Info(PAYLOAD_STATUS, '', '', '', 25.0, 25)
         self.log.log(f"Get Aircon Status : {aircon_no}", Color.Yellow, ColorLog.Level.DEBUG)
 
@@ -434,7 +437,7 @@ class LGACPacketHandler:
              # Wait for lock with timeout to prevent infinite blocking
             async with asyncio.timeout(5.0): # 5 seconds wait max
                 async with self._lock:
-                    aircon_info: Aircon.Info | None = await self.async_send_and_get_result(0, aircon_no, aircon_cmd)
+                    aircon_info: Aircon.Info | None = await self.async_send_and_get_result(0, aircon_no, aircon_cmd, count_error)
                     if aircon_info:
                         self.log.log(f"Returned Get Aircon Status : {aircon_info.opmode})", Color.Yellow, ColorLog.Level.DEBUG)
                         if aircon_info.opmode == PAYLOAD_AUTO:
@@ -478,7 +481,7 @@ class LGACPacketHandler:
         found_devices = []
         
         for id in range(16):  # 0x00 to 0x0F
-            info = await self.async_get_current_status(id)
+            info = await self.async_get_current_status(id, count_error=False)
             if self._is_valid_info(info, id):
                 self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
                 found_devices.append(id)

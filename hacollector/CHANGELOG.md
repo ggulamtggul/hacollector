@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.10
+- **Fix**: Suppressed "Too many read errors" log and socket reconnection during Auto Discovery. Scanning non-existent devices no longer counts as a connection error.
+
 ## 0.9.9
 - **Fix**: Resolved a race condition where Auto Discovery would skip devices that were being polled by the main loop. Implemented `asyncio.Lock` with timeout to safely serialize RS485 access.
 
