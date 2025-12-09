@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.2
+- **Bugfix**: Fixed `IndentationError` in `appconf.py` caused by incorrect refactoring of legacy config reading. Removed redundant loop to verify cleaner code structure.
+
 ## 1.1.1
 - **Hotfix**: Resolved "Configuration is invalid!" startup crash caused by missing `hacollector.conf`. Configuration loading order is now corrected to prioritize `options.json` and treat legacy file as optional.
 

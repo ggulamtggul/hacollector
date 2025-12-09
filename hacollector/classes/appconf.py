@@ -50,12 +50,11 @@ class MainConfig:
                 if mqtt_section is None:
                      color_log.log("Legacy MQTT section not found (using options.json?)", Color.Yellow, ColorLog.Level.INFO)
                 else:
-                    for item in mqtt_section:
-                    self.mqtt_anonymous = mqtt_section['anonymous']
-                    self.mqtt_server    = mqtt_section['server']
-                    self.mqtt_port      = mqtt_section['port']
-                    self.mqtt_id        = mqtt_section['username']
-                    self.mqtt_pw        = mqtt_section['password']
+                    self.mqtt_anonymous = mqtt_section.get('anonymous', 'False')
+                    self.mqtt_server    = mqtt_section.get('server', '')
+                    self.mqtt_port      = mqtt_section.get('port', '1883')
+                    self.mqtt_id        = mqtt_section.get('username', '')
+                    self.mqtt_pw        = mqtt_section.get('password', '')
         except Exception as e:
             color_log.log(f"Error in reading config file.[{e}]", Color.Red, ColorLog.Level.CRITICAL)
             return False
