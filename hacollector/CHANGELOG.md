@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.5
+- **Improvement**: Enhanced Auto Registration reliability by verifying sensor data (Mode and Temperature) before adding a device. This prevents ghost devices caused by noise.
+
 ## 0.9.4
 - **New Feature**: Auto Registration! Devices found during startup scan that are not in the config are now automatically added to Home Assistant (e.g., `LG Aircon auto_room_02`).
 

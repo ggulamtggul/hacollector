@@ -445,25 +445,36 @@ class LGACPacketHandler:
         found_devices = []
         for id in range(16):  # 0x00 to 0x0F
             info = await self.async_get_current_status(id)
+            
+            # Validate info to filter out noise
             if info:
-                self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
-                found_devices.append(id)
-                
-                # Check if this ID is already configured
-                is_configured = False
-                for aircon in self.aircon:
-                    if aircon.id == id:
-                        is_configured = True
-                        break
-                
-                # If not configured, auto-register it
-                if not is_configured:
-                    new_room_name = f"auto_room_{id:02x}"
-                    self.log.log(f"Auto-registering new device: {new_room_name} (ID: 0x{id:02x})", Color.Yellow)
-                    new_aircon = Aircon(new_room_name)
-                    new_aircon.id = id
-                    new_aircon.set_initial_state()
-                    self.aircon.append(new_aircon)
+                is_valid = True
+                if info.opmode == '':
+                    self.log.log(f"Ignored device at ID: 0x{id:02x} (Invalid Opmode)", Color.Yellow)
+                    is_valid = False
+                elif not (0 <= info.cur_temp <= 50):
+                    self.log.log(f"Ignored device at ID: 0x{id:02x} (Invalid Temp: {info.cur_temp})", Color.Yellow)
+                    is_valid = False
+
+                if is_valid:
+                    self.log.log(f"FOUND DEVICE at ID: 0x{id:02x}", Color.Green, ColorLog.Level.INFO)
+                    found_devices.append(id)
+                    
+                    # Check if this ID is already configured
+                    is_configured = False
+                    for aircon in self.aircon:
+                        if aircon.id == id:
+                            is_configured = True
+                            break
+                    
+                    # If not configured, auto-register it
+                    if not is_configured:
+                        new_room_name = f"auto_room_{id:02x}"
+                        self.log.log(f"Auto-registering new device: {new_room_name} (ID: 0x{id:02x})", Color.Yellow)
+                        new_aircon = Aircon(new_room_name)
+                        new_aircon.id = id
+                        new_aircon.set_initial_state()
+                        self.aircon.append(new_aircon)
                     
             await asyncio.sleep(0.2)
         
