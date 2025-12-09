@@ -331,25 +331,21 @@ class LGACPacketHandler:
             aircon.action = action_str
             aircon.opmode = opmode_str
 
-            self.log.log(
+            self.log.debug(
                 f"act={aircon.action}, opmode={aircon.opmode}, fanmove={aircon.fanmove}, fanspeed={aircon.fanmode}, "
-                f"taregt_temp={aircon.target_temp}",
-                Color.White,
-                ColorLog.Level.DEBUG
+                f"taregt_temp={aircon.target_temp}"
             )
             
             aircon_no = int(self.get_room_aircon_number(room_str))
             aircon_cmd = Aircon.Info(action_str, opmode_str, aircon.fanmove, aircon.fanmode, 0.0, aircon.target_temp)
 
-            aircon_cmd = Aircon.Info(action_str, opmode_str, aircon.fanmove, aircon.fanmode, 0.0, aircon.target_temp)
-
             self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
-
-            self.log.log(
+            
+            self.log.debug(
                 f"[From HA]{device_str}/{room_str}/set = [mode={aircon.action}, target_temp={aircon.target_temp}]"
             )
         except Exception as e:
-            self.log.log(f"[From HA]Error [{e}] {topic} = {payload}", Color.Red)
+            self.log.error(f"[From HA]Error [{e}] {topic} = {payload}")
 
     async def async_read_packet(self, timeout: float = 2.0) -> bytes | None:
         """

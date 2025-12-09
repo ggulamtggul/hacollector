@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.21
+- **Hotfix**: Fixed `NameError: name 'ColorLog' is not defined` and `TypeError` in `handle_aircon_mqtt_message`. Replaced remaining legacy logging calls.
+
 ## 1.3.20
 - **Hotfix**: Fixed `NameError: name 'PAYLOAD_ONLINE' is not defined` during boot scan. explicitly imported `PAYLOAD_ONLINE` in `lgac485.py`.
 
