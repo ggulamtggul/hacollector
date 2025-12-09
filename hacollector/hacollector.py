@@ -45,7 +45,7 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
     color_log.set_level(app_config.log_level)
 
     # 핸들러 초기화
-    aircon = LGACPacketHandler(app_config)
+    aircon = LGACPacketHandler(app_config, loop)
     mqtt = MqttHandler(app_config)
 
     def close_all_devices_sockets():

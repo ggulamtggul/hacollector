@@ -20,6 +20,7 @@ class MainConfig:
         self.log_level: str                 = cfg.CONF_LOGLEVEL
         self.min_temp: int                  = 18
         self.max_temp: int                  = 30
+        self.scan_interval: float           = cfg.WALLPAD_SCAN_INTERVAL_TIME
         self.rooms: dict[str, str]          = {}
 
     def read_config_file(self, config: ConfigParser) -> bool:
@@ -152,3 +153,48 @@ class MainConfig:
         # Populate global for backward compatibility (if needed) but prefer object passing
         if self.rooms:
             cfg.SYSTEM_ROOM_AIRCON = self.rooms
+
+        # Attempt to load from options.json (Direct HA Addon Support)
+        self.load_options_json()
+        
+    def load_options_json(self):
+        options_path = '/data/options.json'
+        # For local testing, check if options.json exists in root or predictable path
+        # In HA, it's always /data/options.json
+        if not os.path.exists(options_path):
+            return
+
+        color_log = ColorLog()
+        try:
+            import json
+            with open(options_path, 'r') as f:
+                options = json.load(f)
+            
+            color_log.log(f"Loading configuration from {options_path}...", Color.Cyan)
+            
+            if 'lg_server_ip' in options: self.aircon_server = options['lg_server_ip']
+            if 'lg_server_port' in options: self.aircon_port = str(options['lg_server_port'])
+            if 'mqtt_server' in options: self.mqtt_server = options['mqtt_server']
+            if 'mqtt_port' in options: self.mqtt_port = str(options['mqtt_port'])
+            if 'mqtt_username' in options: self.mqtt_id = options['mqtt_username']
+            if 'mqtt_password' in options: self.mqtt_pw = options['mqtt_password']
+            if 'min_temp' in options: self.min_temp = int(options['min_temp'])
+            if 'max_temp' in options: self.max_temp = int(options['max_temp'])
+            if 'scan_interval' in options: self.scan_interval = float(options['scan_interval'])
+            if 'log_level' in options: self.log_level = options['log_level']
+            
+            if 'rooms' in options:
+                # HA Addon config "rooms" is a list of dicts: [{"name": "...", "id": ...}]
+                rooms_data = options['rooms']
+                new_rooms = {}
+                for item in rooms_data:
+                    if 'name' in item and 'id' in item:
+                        new_rooms[f"{int(item['id']):02x}"] = item['name']
+                if new_rooms:
+                    self.rooms = new_rooms
+                    cfg.SYSTEM_ROOM_AIRCON = new_rooms # Global sync
+            
+            color_log.log("Configuration loaded from options.json successfully.", Color.Green)
+
+        except Exception as e:
+            color_log.log(f"Failed to load options.json: {e}", Color.Yellow)

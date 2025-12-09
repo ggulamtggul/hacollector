@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0
+- **Major Release**: Initial 1.0 release reflecting significant architectural stability and feature completeness.
+- **Architecture**: Migrated to `asyncio.Queue` for handling commands. This eliminates the CPU-intensive polling loop and improves responsiveness using `await queue.get()`.
+- **Configuration**: Implemented direct parsing of `/data/options.json`. The addon now reads configuration natively, robustly handling settings without relying on complex environment variable passing.
+- **Feature**: Added `scan_interval` option (default 20s). Users can now adjust how frequently the addon polls device status.
+
 ## 0.9.15
 - **Improvement**: Enabled persistent TCP connection. Previously, the add-on closed and re-opened the socket for every packet, causing excessive "Connecting..." logs. Now the connection is kept alive, significantly reducing log noise and overhead.
 
@@ -61,4 +67,4 @@
 - **Improvement**: Stabilized initial MQTT connection.
 
 ## 0.87
-- Initial Release as Home Assistant Add-on.
+- **Initial Release** as Home Assistant Add-on.

@@ -222,7 +222,7 @@ class LGACPacket:
 
 
 class LGACPacketHandler:
-    def __init__(self, config: MainConfig | None = None) -> None:
+    def __init__(self, config: MainConfig | None = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
         self.name                       = config.aircon_devicename if config is not None else 'TestAircon'
         self.enabled_device_list: list  = []
         self.aircon: list               = []
@@ -243,11 +243,12 @@ class LGACPacketHandler:
                 cfg.MAX_SOCKET_BUFFER,
                 cfg.PACKET_RESEND_INTERVAL_SEC
             )
-        self.command_queue: Queue       = Queue()
-        self.loop: asyncio.AbstractEventLoop
+        self.command_queue: asyncio.Queue = asyncio.Queue()
+        self.loop: asyncio.AbstractEventLoop = loop if loop else asyncio.get_running_loop()
         self.read_error_count           = 0
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
         self.log                        = ColorLog()
+        self.scan_interval              = config.scan_interval if config else cfg.WALLPAD_SCAN_INTERVAL_TIME
         self.prepare_enabled()
 
     def sync_close_socket(self, loop):
@@ -332,7 +333,9 @@ class LGACPacketHandler:
             aircon_no = int(self.get_room_aircon_number(room_str))
             aircon_cmd = Aircon.Info(action_str, opmode_str, aircon.fanmove, aircon.fanmode, 0.0, aircon.target_temp)
 
-            self.command_queue.put((aircon_no, room_str, aircon_cmd))
+            aircon_cmd = Aircon.Info(action_str, opmode_str, aircon.fanmove, aircon.fanmode, 0.0, aircon.target_temp)
+
+            self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
 
             self.log.log(
                 f"[From HA]{device_str}/{room_str}/set = [mode={aircon.action}, target_temp={aircon.target_temp}]"
@@ -509,7 +512,7 @@ class LGACPacketHandler:
     async def async_scan_aircons(self, now: float):
         for aircon in self.aircon:
             assert isinstance(aircon, Aircon)
-            if (now - aircon.scan.tick) > cfg.WALLPAD_SCAN_INTERVAL_TIME:
+            if (now - aircon.scan.tick) > self.scan_interval:
                 aircon.scan.tick = now
                 self.log.log(f">>>>>Rescan {aircon} Check Sending!!!!", Color.Blue, ColorLog.Level.DEBUG)
                 await self.async_scan_aircon_status(aircon)
@@ -517,10 +520,11 @@ class LGACPacketHandler:
 
     async def async_lgac_main_write_loop(self) -> None:
         while True:
-            await asyncio.sleep(0.01)
-            if not self.command_queue.empty():
-                (aircon_no, room_str, aircon_cmd) = self.command_queue.get()
-                assert isinstance(aircon_cmd, Aircon.Info)
-                aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
-                if aircon_info:
-                    self.notify_to_homeassistant(DEVICE_AIRCON, room_str, aircon_info)
+            # await asyncio.sleep(0.01) # Asyncio Queue get handles waiting efficiently
+            (aircon_no, room_str, aircon_cmd) = await self.command_queue.get()
+            
+            assert isinstance(aircon_cmd, Aircon.Info)
+            aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
+            if aircon_info:
+                self.notify_to_homeassistant(DEVICE_AIRCON, room_str, aircon_info)
+            self.command_queue.task_done()
