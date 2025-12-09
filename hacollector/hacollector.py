@@ -46,7 +46,8 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
 
     # 핸들러 초기화
     aircon = LGACPacketHandler(app_config, loop)
-    mqtt = MqttHandler(app_config)
+    # Pass loop to MqttHandler for scheduling callbacks safely
+    mqtt = MqttHandler(app_config, loop)
 
     def close_all_devices_sockets():
         aircon.sync_close_socket(loop)
@@ -86,7 +87,7 @@ async def main(loop: asyncio.AbstractEventLoop, first_run: bool):
         mqtt.connect_mqtt()
         # 연결 대기 후 Discovery 수행
         await asyncio.sleep(1.0)
-        mqtt.homeassistant_device_discovery(initial=True)
+        await mqtt.homeassistant_device_discovery(initial=True)
     except Exception as e:
         color_log.log(f"Error connecting MQTT Server: {e}", Color.Red, ColorLog.Level.CRITICAL)
         sys.exit(1)

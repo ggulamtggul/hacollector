@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from typing import TYPE_CHECKING, Callable
@@ -59,8 +60,6 @@ class Discovery:
                 'configuration_url': 'https://github.com/ggulamtggul/hacollector'
             },
             # Availability 설정 추가
-            'avty_t': availability_topic,
-            'pl_avail': PAYLOAD_ONLINE,
             'pl_not_avail': PAYLOAD_OFFLINE
         }
         if icon_name != '':
@@ -72,12 +71,19 @@ class Discovery:
             aircon_common_id_str                    = f'{cfg.CONF_AIRCON_DEVICE_NAME}_{room_safe}_{device}'
             
             # device 정보 덮어쓰기 (기존 로직 유지하되 정리)
-            payload["device"]["identifiers"] = [aircon_common_id_str]
-            payload['name']                         = f'LG Aircon {room}'
+            # Use RS485 ID for identifiers if available to be robust against name changes
             if uid is not None:
-                payload['uniq_id'] = f'{cfg.CONF_AIRCON_DEVICE_NAME}_id_{uid:02x}'
+                # Format: lg_aircon_rs485_01
+                stable_id = f'lg_aircon_rs485_{uid:02x}'
+                payload["device"]["identifiers"] = [stable_id]
+                # Unique ID: lg_aircon_rs485_01
+                payload['uniq_id'] = stable_id
             else:
+                # Fallback to legacy room-based ID
+                payload["device"]["identifiers"] = [aircon_common_id_str]
                 payload['uniq_id'] = aircon_common_id_str
+            
+            payload['name']                         = f'LG Aircon {room}'
             
             
             payload[f'{MQTT_MODE}_stat_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
@@ -135,7 +141,8 @@ class Discovery:
 
 
 class MqttHandler:
-    def __init__(self, config: MainConfig) -> None:
+    def __init__(self, config: MainConfig, loop: asyncio.AbstractEventLoop | None = None) -> None:
+        self.loop                                   = loop if loop else asyncio.get_running_loop()
         self.server                                 = config.mqtt_server
         self.port                                   = int(config.mqtt_port)
         self.anonymous                              = config.mqtt_anonymous
@@ -209,7 +216,7 @@ class MqttHandler:
         if topic[0] == cfg.CONF_AIRCON_DEVICE_NAME:
             self.aircon_mqtt_handler(topic, payload)
 
-    def homeassistant_device_discovery(self, initial: bool = False, remove: bool = False) -> None:
+    async def homeassistant_device_discovery(self, initial: bool = False, remove: bool = False) -> None:
         self.subscribe_list = []
         # HA 제어용 토픽 구독
         self.subscribe_list.append((f'{cfg.HA_CALLBACK_MAIN}/{cfg.HA_CALLBACK_BRIDGE}/#', 0))
@@ -232,10 +239,11 @@ class MqttHandler:
                     if payload: 
                         # 1. 좀비 엔티티 제거를 위해 빈 값 전송
                         self.mqtt_client.publish(topic, "", retain=True, qos=1)
-                        time.sleep(0.1)
+                        # Switch to async sleep to prevent blocking event loop
+                        await asyncio.sleep(0.1)
                         # 2. 새로운 설정 전송
                         self.mqtt_client.publish(topic, payload, retain=True, qos=1)
-                        time.sleep(0.1)
+                        await asyncio.sleep(0.1)
                     else:
                         # 제거 모드
                         self.mqtt_client.publish(topic, "", retain=True, qos=1)
@@ -286,6 +294,10 @@ class MqttHandler:
             # 연결 즉시 온라인 상태 전송
             client.publish(self.availability_topic, PAYLOAD_ONLINE, retain=True)
             self.start_discovery = True
+            
+            # Schedule discovery safely on the main loop
+            # This callback runs in a separate thread (paho loop), so we must use threadsafe scheduling
+            asyncio.run_coroutine_threadsafe(self.homeassistant_device_discovery(initial=True), self.loop)
         else:
             color_log.log(f"[MQTT] Connection Failed: rc={rc}", Color.Red)
             self.mqtt_connect_error = True
@@ -297,7 +309,8 @@ class MqttHandler:
             
             # HA 관리 명령 처리 (restart, remove 등)
             if 'config' in rcv_topic and rcv_topic[3] == 'restart':
-                 self.homeassistant_device_discovery()
+                 # Schedule safe restart
+                 asyncio.run_coroutine_threadsafe(self.homeassistant_device_discovery(), self.loop)
                  return
             
             if not self.start_discovery:

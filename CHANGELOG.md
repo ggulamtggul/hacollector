@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+- **Stable Unique ID**: Bind Home Assistant Unique ID to RS485 Hardware ID (uid) instead of changeable Room Name. Prevents "Zombie entities" when renaming rooms.
+- **Async MQTT Discovery**: Removed blocking `time.sleep` calls during discovery, preventing Event Loop lag.
+- **Optimization**: Removed `run.sh` & `jq` dependency. Python now handles configuration directly, reducing Docker image size and complexity.
+- **Refactor**: Improved standardized Logging across all modules.
+
 ## 1.0.0
 - **Major Release**: Initial 1.0 release reflecting significant architectural stability and feature completeness.
 - **Architecture**: Migrated to `asyncio.Queue` for handling commands. This eliminates the CPU-intensive polling loop and improves responsiveness using `await queue.get()`.
