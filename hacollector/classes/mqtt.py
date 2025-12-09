@@ -313,7 +313,7 @@ class MqttHandler:
         if self.mqtt_client:
             # LGAircon/{room_safe}/availability
             room_safe = room_str.replace(' ', '_')
-            topic = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{room_safe}/{PAYLOAD_STATUS}'
+            topic = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{room_safe}/availability'
             self.mqtt_client.publish(topic, status, retain=True)
 
     def on_connect(self, client, userdata, flags, rc):

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.14
+- **Fix**: Resolved "Unknown" availability state for entities. Fixed mismatched MQTT topic between Discovery and Status Publisher (`.../status` vs `.../availability`).
+
 ## 1.3.13
 - **Hotfix**: Fixed IndentationError in `mqtt.py` that prevented startup in v1.3.12.
 
