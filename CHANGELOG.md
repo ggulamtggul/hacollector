@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.11
+- **Fix**: Corrected RS485 Packet Hunting header from `0x80` to `0x10`. Log analysis confirmed that response packets start with `0x10`.
+- **Cleanup**: Removed verbose debug logs (`RX Raw`) introduced in v1.3.10 now that the protocol is verified.
+
 ## 1.3.10
 - **Debug**: Enhanced RS485 diagnostic logging. `RX Raw` log now shows incoming hexadecimal data to verify hardware communication.
 - **Fix**: Improved EOF detection in `comm.py`. The collector now correctly identifies when the RS485 converter closes the connection (sending 0 bytes) and triggers a reset.

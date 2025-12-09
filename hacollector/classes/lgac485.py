@@ -355,19 +355,17 @@ class LGACPacketHandler:
             # 1. Read available data and append to buffer
             new_data = await self.comm.async_read_stream(2048)
             if new_data:
-                self.log.log(f"RX Raw: {new_data.hex()}", Color.Magenta, ColorLog.Level.INFO)
+                # self.log.log(f"RX Raw: {new_data.hex()}", Color.Magenta, ColorLog.Level.INFO)
                 self._recv_buffer.extend(new_data)
 
             # 2. Packet Hunting Loop
             while len(self._recv_buffer) > 0:
-                # Find Header (0x80)
+                # Find Header (0x10) - Response header is 0x10, Send header is 0x80
                 try:
-                    header_idx = self._recv_buffer.index(0x80)
+                    header_idx = self._recv_buffer.index(0x10)
                 except ValueError:
-                    # No header(0x80) in buffer: trash everything to clear garbage
-                    # Logic: If we are here, we have some data but NO header.
-                    # It's better to flush and wait for clean new data.
-                    self.log.log(f"No header(0x80) in buffer: {self._recv_buffer.hex()}", Color.Yellow, ColorLog.Level.DEBUG)
+                    # No header(0x10) in buffer: trash everything to clear garbage
+                    # self.log.log(f"No header(0x10) in buffer: {self._recv_buffer.hex()}", Color.Yellow, ColorLog.Level.DEBUG)
                     self._recv_buffer.clear()
                     # Wait for more data
                     break
@@ -381,7 +379,7 @@ class LGACPacketHandler:
                     # Not enough data yet, break inner loop to read more
                     break
                 
-                # We have at least 16 bytes starting with 0x80. Check Checksum.
+                # We have at least 16 bytes starting with 0x10. Check Checksum.
                 possible_packet = self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
                 if self.is_checksum_ok(possible_packet):
                     # Valid Packet Found!
@@ -389,8 +387,8 @@ class LGACPacketHandler:
                     del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
                     return bytes(possible_packet)
                 else:
-                    # Invalid Checksum. This 0x80 was a false positive or corrupted.
-                    # Discard just this one byte (0x80) and continue searching from the next byte
+                    # Invalid Checksum. This 0x10 was a false positive or corrupted.
+                    # Discard just this one byte (0x10) and continue searching from the next byte
                     del self._recv_buffer[0:1]
                     continue
             
