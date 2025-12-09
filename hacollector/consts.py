@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "0.9.11"  # 버전 업데이트
+SW_VERSION          = "0.9.12"  # 버전 업데이트
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - by Bongdang"
 
 # main service name

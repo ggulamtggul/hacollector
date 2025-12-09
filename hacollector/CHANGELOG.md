@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.12
+- **Fix**: Critical startup crash resolved. Fixed a bug in `mqtt.py` where `enabled_device` was undefined during initialization.
+
 ## 0.9.11
 - **Fix**: Resolved "Illegal discovery topic" error in Home Assistant by sanitizing spaces in room names for MQTT topics. Friendly names still retain spaces (e.g., "living room" -> topic: "living_room", name: "LG Aircon living room").
 

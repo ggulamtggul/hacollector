@@ -27,9 +27,91 @@ if TYPE_CHECKING:
 
 
 class Discovery:
+class Discovery:
     def __init__(self, pub, sub, min_temp=18, max_temp=30) -> None:
         self.pub: list[dict] = pub
         self.sub: list[tuple[str, int]] = sub
+        self.min_temp = min_temp
+        self.max_temp = max_temp
+
+    def make_topic_and_payload_for_discovery(
+        self, kind: str, room: str, device: str, icon_name: str, uid: int | None = None
+    ) -> tuple[str, dict]:
+        # Sanitize room name for MQTT topics and IDs (No spaces allowed)
+        room_safe = room.replace(' ', '_')
+        
+        common_topic_str = f'{cfg.HA_PREFIX}/{kind}/{room_safe}'
+        
+        # Availability Topic 설정 (LGAircon/status)
+        availability_topic = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{PAYLOAD_STATUS}'
+
+        topic = f'{common_topic_str}_{device}/config'
+
+        # 기본 Payload 구성
+        payload = {
+            'name': f'{SERVICE_NAME}_{room}_{device}', # Friendly Name can have spaces? uniq_id helps. Let's keep it safe.
+            'uniq_id': f'{SERVICE_NAME}_{room_safe}_{device}',
+            'device': {
+                'name': f'LG System Aircon {room}', # Device entry friendly name
+                'ids': f'lg_aircon_{room_safe}',
+                'mf': 'LG Electronics',
+                'mdl': 'System Aircon (RS485)',
+                'sw': SW_VERSION_STRING,
+                'configuration_url': 'https://github.com/ggulamtggul/hacollector'
+            },
+            # Availability 설정 추가
+            'avty_t': availability_topic,
+            'pl_avail': PAYLOAD_ONLINE,
+            'pl_not_avail': PAYLOAD_OFFLINE
+        }
+        if icon_name != '':
+            payload['ic'] = icon_name
+
+        # LG 에어컨 전용 설정
+        if device == DEVICE_AIRCON:
+            aircon_common_topic_str                 = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{kind}/{room_safe}'
+            aircon_common_id_str                    = f'{cfg.CONF_AIRCON_DEVICE_NAME}_{room_safe}_{device}'
+            
+            # device 정보 덮어쓰기 (기존 로직 유지하되 정리)
+            payload["device"]["identifiers"] = [aircon_common_id_str]
+            payload['name']                         = f'LG Aircon {room}'
+            if uid is not None:
+                payload['uniq_id'] = f'{cfg.CONF_AIRCON_DEVICE_NAME}_id_{uid:02x}'
+            else:
+                payload['uniq_id'] = aircon_common_id_str
+            
+            
+            payload[f'{MQTT_MODE}_stat_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
+            payload[f'{MQTT_MODE}_stat_tpl']        = '{{ value_json.mode }}'
+            payload[f'{MQTT_MODE}_{MQTT_CMD_T}']    = f'{aircon_common_topic_str}/{MQTT_MODE}'
+            payload[f'{MQTT_MODE}s']                = [PAYLOAD_OFF, PAYLOAD_COOL, PAYLOAD_DRY, PAYLOAD_FAN_ONLY, PAYLOAD_AUTO]
+            
+            payload[f'{MQTT_TEMP}_stat_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
+            payload[f'{MQTT_TEMP}_stat_tpl']        = '{{ value_json.target_temp }}'
+            payload[f'{MQTT_TEMP}_step']            = 1
+            payload[f'{MQTT_TEMP}_{MQTT_CMD_T}']    = f'{aircon_common_topic_str}/{MQTT_TARGET_TEMP}'
+            payload[f'min_{MQTT_TEMP}']             = self.min_temp
+            payload[f'max_{MQTT_TEMP}']             = self.max_temp
+            
+            payload[f'curr_{MQTT_TEMP}_t']          = f'{aircon_common_topic_str}/{MQTT_STATE}'
+            payload[f'curr_{MQTT_TEMP}_tpl']        = '{{ value_json.current_temp }}'
+            
+            payload[f'{MQTT_FAN_MODE}_stat_t']      = f'{aircon_common_topic_str}/{MQTT_STATE}'
+            payload[f'{MQTT_FAN_MODE}_stat_tpl']    = '{{ value_json.fan_mode }}'
+            payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'] = f'{aircon_common_topic_str}/{MQTT_FAN_MODE}'
+            payload[f'{MQTT_FAN_MODE}s']            = [PAYLOAD_LOW, PAYLOAD_MEDIUM, PAYLOAD_HIGH, PAYLOAD_AUTO, PAYLOAD_SILENT, PAYLOAD_POWER, PAYLOAD_OFF]
+            
+            payload[f'{MQTT_SWING_MODE}_stat_t']    = f'{aircon_common_topic_str}/{MQTT_STATE}'
+            payload[f'{MQTT_SWING_MODE}_stat_tpl']  = '{{ value_json.swing_mode }}'
+            payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'] = f'{aircon_common_topic_str}/{MQTT_SWING_MODE}'
+            payload[f'{MQTT_SWING_MODE}s']          = [PAYLOAD_ON, PAYLOAD_OFF]
+            
+        return topic, payload
+
+    def discovery_aircon(self, remove: bool, enabled_device: list | None = None) -> None:
+        from classes.aircon import Aircon
+
+        assert isinstance(enabled_device, list)
         for room_aircon in enabled_device:
             if isinstance(room_aircon, Aircon):
                 room_name = room_aircon.room_name
