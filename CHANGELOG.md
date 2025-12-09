@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.3
+- **Hotfix**: Fixed `IndentationError` in `appconf.py` that prevented startup.
+
 ## 1.3.2
 - **Bugfix**: Fixed critical issue in Packet Hunting logic where the hunted header was ignored by the subsequent read operation, causing `Read From LGAC FAIL!` loops. Replaced `async_get_data_direct` (socket-only) with `async_get_data` (buffered) to correctly consume the found header.
 

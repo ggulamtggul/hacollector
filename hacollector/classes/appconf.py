@@ -12,6 +12,24 @@ class MainConfig:
         self.aircon_server: str             = ''
         self.aircon_port: str               = '0'
         self.aircon_devicename: str         = ''
+        self.mqtt_anonymous: str            = ''
+        self.mqtt_server: str               = ''
+        self.mqtt_port: str                 = ''
+        self.mqtt_id: str                   = ''
+        self.mqtt_pw: str                   = ''
+        self.log_level: str                 = cfg.CONF_LOGLEVEL
+        self.min_temp: int                  = 18
+        self.max_temp: int                  = 30
+        self.scan_interval: float           = cfg.WALLPAD_SCAN_INTERVAL_TIME
+        self.rs485_timeout: float           = 2.0
+        self.rooms: dict[str, str]          = {}
+
+    def read_config_file(self, config: ConfigParser) -> bool:
+        color_log = ColorLog()
+        try:
+            # first, check RS485 Device
+            rs485_devices = config[cfg.CONF_RS485_DEVICES] if cfg.CONF_RS485_DEVICES in config else None
+            
             if rs485_devices is not None and len(rs485_devices) >= 1:
                 aircon_section = None
                 for top_device in rs485_devices:
@@ -29,16 +47,17 @@ class MainConfig:
                     self.aircon_server      = aircon_info['server']
                     self.aircon_port        = aircon_info['port']
                     self.aircon_devicename  = aircon_info['device']
-                # mqtt
-                mqtt_section = config[cfg.CONF_MQTT] if cfg.CONF_MQTT in config else None
-                if mqtt_section is None:
-                     color_log.log("Legacy MQTT section not found (using options.json?)", Color.Yellow, ColorLog.Level.INFO)
-                else:
-                    self.mqtt_anonymous = mqtt_section.get('anonymous', 'False')
-                    self.mqtt_server    = mqtt_section.get('server', '')
-                    self.mqtt_port      = mqtt_section.get('port', '1883')
-                    self.mqtt_id        = mqtt_section.get('username', '')
-                    self.mqtt_pw        = mqtt_section.get('password', '')
+            
+            # mqtt
+            mqtt_section = config[cfg.CONF_MQTT] if cfg.CONF_MQTT in config else None
+            if mqtt_section is None:
+                 color_log.log("Legacy MQTT section not found (using options.json?)", Color.Yellow, ColorLog.Level.INFO)
+            else:
+                self.mqtt_anonymous = mqtt_section.get('anonymous', 'False')
+                self.mqtt_server    = mqtt_section.get('server', '')
+                self.mqtt_port      = mqtt_section.get('port', '1883')
+                self.mqtt_id        = mqtt_section.get('username', '')
+                self.mqtt_pw        = mqtt_section.get('password', '')
         except Exception as e:
             color_log.log(f"Error in reading config file.[{e}]", Color.Red, ColorLog.Level.CRITICAL)
             return False
@@ -87,9 +106,6 @@ class MainConfig:
 
         if temperature_adjust:
             cfg.TEMPERATURE_ADJUST = temperature_adjust
-
-        if log_partial_debug and log_partial_debug != 'false':
-            color_log.set_partial_debug()
 
         if log_partial_debug and log_partial_debug != 'false':
             color_log.set_partial_debug()
