@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.16
+- **Fix**: Corrected the initial availability message logic during discovery. It now correctly iterates through enabled devices and sends "Online" to each room's specific availability topic, ensuring entities are immediately available on boot.
+
 ## 1.3.15
 - **Fix**: Fixed the initial MQTT connection using the old `.../status` topic for "Online" messages. It now correctly uses `.../availability`.
 

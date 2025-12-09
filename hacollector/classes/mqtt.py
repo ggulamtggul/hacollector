@@ -272,8 +272,20 @@ class MqttHandler:
 
             # 모든 등록이 끝나면 Online 상태 전송
             if not remove:
+                # 1. Global Bridge Status
                 self.mqtt_client.publish(self.availability_topic, PAYLOAD_ONLINE, retain=True, qos=1)
-                color_log.log(f"Sent Online Status to {self.availability_topic}", Color.Green)
+                
+                # 2. Per-Device Availability Initial Status
+                from classes.aircon import Aircon
+                for dev_name, enabled_device in self.enabled_list:
+                    if dev_name == DeviceType.AIRCON: # Correctly compare Enum
+                        # enabled_list is set in hacollector.py: enabled_list.append((DeviceType.AIRCON, self.aircon))
+                        # DeviceType is enum.
+                         for room_aircon in enabled_device:
+                            if isinstance(room_aircon, Aircon) and room_aircon.room_name:
+                                self.publish_availability(room_aircon.room_name, PAYLOAD_ONLINE)
+                
+                color_log.log(f"Sent Online Status to {self.availability_topic} and Devices", Color.Green)
 
         if self.start_discovery:
             self.start_discovery = False
