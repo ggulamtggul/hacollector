@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.20
+- **Hotfix**: Fixed `NameError: name 'PAYLOAD_ONLINE' is not defined` during boot scan. explicitly imported `PAYLOAD_ONLINE` in `lgac485.py`.
+
 ## 1.3.19
 - **Hotfix**: Fixed `NameError: name 'configparser' is not defined`. Restored missing `import configparser` in `hacollector.py`.
 
