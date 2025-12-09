@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.2
+- **Bugfix**: Fixed critical issue in Packet Hunting logic where the hunted header was ignored by the subsequent read operation, causing `Read From LGAC FAIL!` loops. Replaced `async_get_data_direct` (socket-only) with `async_get_data` (buffered) to correctly consume the found header.
+
 ## 1.3.1
 - **Hotfix**: Increased default `rs485_timeout` from 0.5s to 2.0s. This resolves the `Read From LGAC FAIL!` recursion on slower devices/converters.
 - **Debug**: Added detailed buffer dump logging when Packet Hunting times out, helping diagnose protocol header mismatches.

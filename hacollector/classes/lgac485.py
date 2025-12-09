@@ -350,8 +350,12 @@ class LGACPacketHandler:
         # Verify header is present using configured timeout (sliding window)
         if await self.comm.async_ensure_header(LGACPacket._READER_HEADER_MAGIC, timeout=self.rs485_timeout):
             # 2. Read the full body (including the header we just hunted)
-            # async_get_data_direct will read from the buffer first (which starts with header)
-            res_packet = await self.comm.async_get_data_direct(LGACPacket._RESPONSE_PACKET_SIZE, reconnect_on_failure=allow_reconnect)
+            # async_get_data will read from the buffer first (which starts with header)
+            # We use a slightly longer timeout for the body read itself to ensure full packet arrival
+            res_packet = await self.comm.async_get_data(
+                LGACPacket._RESPONSE_PACKET_SIZE, 
+                timeout=self.rs485_timeout + 1.0 # Give a bit more grace for body
+            )
             return res_packet
         else:
             # Header not found within timeout

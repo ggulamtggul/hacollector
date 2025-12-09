@@ -134,22 +134,42 @@ class TCPComm:
                 color_log.log(f"Write failed again after reconnect: {e2}", Color.Red, ColorLog.Level.ERROR)
                 return False
 
-    async def async_get_data(self, length: int) -> bytes:
+    async def async_get_data(self, length: int, timeout: float | None = None) -> bytes:
         """
-        Read exactly `length` bytes, buffering as needed. Returns b'' on EOF.
+        Read exactly `length` bytes, buffering as needed. Returns b'' on EOF or Timeout.
         If the socket broke, set connection_reset and return b''.
         """
         await self.wait_safe_communication()
         color_log = ColorLog()
+        
+        start_time = time.monotonic()
+        
         try:
             while length > len(self.read_buffer):
+                # Calculate remaining timeout
+                current_timeout = None
+                if timeout is not None:
+                    elapsed = time.monotonic() - start_time
+                    current_timeout = timeout - elapsed
+                    if current_timeout <= 0:
+                        # Timeout expired
+                        return b''
+                
                 try:
                     assert self.reader is not None
-                    buffer = await self.reader.read(self.buffer_size)
+                    # Wait for data with timeout
+                    if current_timeout is not None:
+                         buffer = await asyncio.wait_for(self.reader.read(self.buffer_size), timeout=current_timeout)
+                    else:
+                         buffer = await self.reader.read(self.buffer_size)
+                         
                     if buffer == b'':
                         # peer closed
                         self.connection_reset = True
                         break
+                except asyncio.TimeoutError:
+                    # Timeout during read
+                    return b''
                 except IOError as e:
                     if e.errno == errno.ECONNRESET:
                         buffer = b''
@@ -157,6 +177,9 @@ class TCPComm:
                     else:
                         raise
                 self.read_buffer += buffer
+
+            if len(self.read_buffer) < length:
+                 return b''
 
             ret = self.read_buffer[:length]
             self.read_buffer = self.read_buffer[length:]
