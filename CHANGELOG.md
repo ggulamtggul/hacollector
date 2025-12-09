@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.4
+- **Diagnostic**: Modified Packet Hunting to attempt reading data even if the header (`0x80`) is not found within the timeout. This allows "Garbage" or "Malformed" packets to be logged, helping diagnosis of connection issues where the device might be sending unexpected data.
+- **Log**: Elevated "Header Hunt Timeout" log from `DEBUG` to `WARN` to make it visible in standard logs.
+
 ## 1.3.3
 - **Hotfix**: Fixed `IndentationError` in `appconf.py` that prevented startup.
 

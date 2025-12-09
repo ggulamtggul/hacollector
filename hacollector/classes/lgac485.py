@@ -348,18 +348,19 @@ class LGACPacketHandler:
     async def async_read_until_tail(self, allow_reconnect: bool = True) -> bytes:
         # 1. Packet Hunting: Ensure we are at the start of a packet (0x80)
         # Verify header is present using configured timeout (sliding window)
-        if await self.comm.async_ensure_header(LGACPacket._READER_HEADER_MAGIC, timeout=self.rs485_timeout):
-            # 2. Read the full body (including the header we just hunted)
-            # async_get_data will read from the buffer first (which starts with header)
-            # We use a slightly longer timeout for the body read itself to ensure full packet arrival
-            res_packet = await self.comm.async_get_data(
-                LGACPacket._RESPONSE_PACKET_SIZE, 
-                timeout=self.rs485_timeout + 1.0 # Give a bit more grace for body
-            )
-            return res_packet
-        else:
-            # Header not found within timeout
-            return b''
+        # v1.3.4: Even if hunt fails, we try to read data to see what is coming (Diagnostic)
+        header_found = await self.comm.async_ensure_header(LGACPacket._READER_HEADER_MAGIC, timeout=self.rs485_timeout)
+        
+        if not header_found:
+             self.log.log("Header Search Failed (Timeout). Attempting to read invalid data for debugging...", Color.Yellow)
+
+        # 2. Read the full body (including the header we just hunted, or garbage if hunt failed)
+        # async_get_data will read from the buffer first
+        res_packet = await self.comm.async_get_data(
+            LGACPacket._RESPONSE_PACKET_SIZE, 
+            timeout=1.0 # Short timeout for body if we already timed out on header
+        )
+        return res_packet
 
     async def async_read_one_chunk(self, allow_reconnect: bool = True) -> bytes | None:
         try:
