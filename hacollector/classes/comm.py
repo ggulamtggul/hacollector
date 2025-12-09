@@ -75,11 +75,6 @@ class TCPComm:
                     self.reader, self.writer = reader, writer
                     self.connection_reset = False
                     color_log.log("Connected.", Color.Green, ColorLog.Level.INFO)
-                    
-                    # v1.3.7: Add small delay after connection to allow RS485 converter to settle
-                    # Used to avoid 'Buffer empty' issues on fresh connections
-                    await asyncio.sleep(0.2)
-                    
                     return
                 except Exception as e:
                     last_err = e
@@ -121,8 +116,6 @@ class TCPComm:
         color_log = ColorLog()
         try:
             assert self.writer is not None
-            # Debug: Log what we are writing (Visible in INFO for diagnostics)
-            color_log.log(f"Writing {len(data)} bytes: {data.hex()}", Color.Cyan, ColorLog.Level.INFO)
             self.writer.write(data)
             await self.writer.drain()
             self.last_accessed_time = time.monotonic()
@@ -141,42 +134,22 @@ class TCPComm:
                 color_log.log(f"Write failed again after reconnect: {e2}", Color.Red, ColorLog.Level.ERROR)
                 return False
 
-    async def async_get_data(self, length: int, timeout: float | None = None) -> bytes:
+    async def async_get_data(self, length: int) -> bytes:
         """
-        Read exactly `length` bytes, buffering as needed. Returns b'' on EOF or Timeout.
+        Read exactly `length` bytes, buffering as needed. Returns b'' on EOF.
         If the socket broke, set connection_reset and return b''.
         """
         await self.wait_safe_communication()
         color_log = ColorLog()
-        
-        start_time = time.monotonic()
-        
         try:
             while length > len(self.read_buffer):
-                # Calculate remaining timeout
-                current_timeout = None
-                if timeout is not None:
-                    elapsed = time.monotonic() - start_time
-                    current_timeout = timeout - elapsed
-                    if current_timeout <= 0:
-                        # Timeout expired
-                        return b''
-                
                 try:
                     assert self.reader is not None
-                    # Wait for data with timeout
-                    if current_timeout is not None:
-                         buffer = await asyncio.wait_for(self.reader.read(self.buffer_size), timeout=current_timeout)
-                    else:
-                         buffer = await self.reader.read(self.buffer_size)
-                         
+                    buffer = await self.reader.read(self.buffer_size)
                     if buffer == b'':
                         # peer closed
                         self.connection_reset = True
                         break
-                except asyncio.TimeoutError:
-                    # Timeout during read
-                    return b''
                 except IOError as e:
                     if e.errno == errno.ECONNRESET:
                         buffer = b''
@@ -184,9 +157,6 @@ class TCPComm:
                     else:
                         raise
                 self.read_buffer += buffer
-
-            if len(self.read_buffer) < length:
-                 return b''
 
             ret = self.read_buffer[:length]
             self.read_buffer = self.read_buffer[length:]
@@ -235,64 +205,3 @@ class TCPComm:
                 except Exception:
                     pass
         return buffer
-
-    async def async_ensure_header(self, header: bytes, timeout: float = 1.0) -> bool:
-        """
-        Sliding Window / Packet Hunting:
-        Read data until the buffer starts with `header`.
-        Discards any bytes received before the header (noise/shifted bytes).
-        Returns True if header is found at the start of buffer, False on timeout/error.
-        """
-        await self.wait_safe_communication()
-        start_time = time.monotonic()
-        
-        while (time.monotonic() - start_time) < timeout:
-            # 1. Check if we already have data
-            if self.read_buffer:
-                # Find header index
-                idx = self.read_buffer.find(header)
-                if idx != -1:
-                    # Header found!
-                    if idx > 0:
-                        # Discard garbage before header
-                        ColorLog().log(f"Header Hunt: Discarding {idx} bytes of noise: {self.read_buffer[:idx].hex()}", Color.Yellow, ColorLog.Level.WARN)
-                        self.read_buffer = self.read_buffer[idx:]
-                    return True
-                else:
-                    # Header not found in current buffer
-                    # Optimization: Keep only the tail that *could* be a partial header?
-                    # For single byte header, we can discard the whole buffer if it's not there.
-                    # For multi-byte header, we must be careful.
-                    # Assuming single byte header for now or simple hunting.
-                    if len(header) == 1:
-                        # Safe to discard all if header not found
-                        # But let's assume valid data is coming.
-                        # Discarding all might be too aggressive if packet is split?
-                        # No, if header is 1 byte and not in buffer, then buffer is all garbage.
-                        self.read_buffer = b''
-                    else:
-                        # Keep last len(header)-1 bytes just in case split header
-                        keep_len = len(header) - 1
-                        if len(self.read_buffer) > keep_len:
-                            self.read_buffer = self.read_buffer[-keep_len:]
-            
-            # 2. Read more data
-            try:
-                assert self.reader is not None
-                # Read small chunk to keep checking
-                chunk = await asyncio.wait_for(self.reader.read(self.buffer_size), timeout=0.5)
-                if chunk == b'':
-                     self.connection_reset = True
-                     return False
-                self.read_buffer += chunk
-            except asyncio.TimeoutError:
-                continue # loop to check timeout
-            except Exception:
-                return False
-        
-        # If we reach here, timeout occurred
-        if self.read_buffer:
-             ColorLog().log(f"Header Hunt Timeout. Buffer dump ({len(self.read_buffer)} bytes): {self.read_buffer.hex()}", Color.Yellow, ColorLog.Level.WARN)
-        else:
-             ColorLog().log("Header Hunt Timeout. Buffer empty.", Color.Yellow, ColorLog.Level.WARN)
-        return False

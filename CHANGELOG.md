@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.8
+- **Rollback**: Reverted RS485 communication logic (`lgac485.py`, `comm.py`) exactly to **v1.1.2** state.
+- **Removed**: "Persistent Connection", "Packet Hunting", and "Header Hunt Timeout" features are removed in this network layer to resolve specific hardware compatibility issues.
+- **Retained**: Home Assistant features (Config Flow, Healthcheck, HA Statistics) are kept.
+
 ## 1.3.7
 - **Improvement**: Added a 0.2s delay immediately after establishing a TCP connection. This mitigates issues where some RS485 converters drop data if sent too quickly after the connection handshake.
 - **Note**: This delay applies to both persistent and non-persistent modes whenever a *new* connection is made.

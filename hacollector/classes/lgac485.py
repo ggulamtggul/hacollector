@@ -26,7 +26,6 @@ MAX_READ_ERROR_RETRY = 3
 
 class LGACPacket:
     _WRITER_HEADER_MAGIC    = b'\x80\x00\xa3'
-    _READER_HEADER_MAGIC    = b'\x80' # Assuming 0x80 is the start byte for response too
     _RESPONSE_PACKET_SIZE   = 16
     FMT_body_read           = '>BBBBBBBBBBBBBBBB'
     FMT_body_write          = '>BBBB'
@@ -250,8 +249,6 @@ class LGACPacketHandler:
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
         self.log                        = ColorLog()
         self.scan_interval              = config.scan_interval if config else cfg.WALLPAD_SCAN_INTERVAL_TIME
-        self.rs485_timeout              = config.rs485_timeout if config else 0.5
-        self.persistent_connection      = config.persistent_connection if config else True
         self.prepare_enabled()
 
     def sync_close_socket(self, loop):
@@ -347,20 +344,8 @@ class LGACPacketHandler:
             self.log.log(f"[From HA]Error [{e}] {topic} = {payload}", Color.Red)
 
     async def async_read_until_tail(self, allow_reconnect: bool = True) -> bytes:
-        # 1. Packet Hunting: Ensure we are at the start of a packet (0x80)
-        # Verify header is present using configured timeout (sliding window)
-        # v1.3.4: Even if hunt fails, we try to read data to see what is coming (Diagnostic)
-        header_found = await self.comm.async_ensure_header(LGACPacket._READER_HEADER_MAGIC, timeout=self.rs485_timeout)
-        
-        if not header_found:
-             self.log.log("Header Search Failed (Timeout). Attempting to read invalid data for debugging...", Color.Yellow)
-
-        # 2. Read the full body (including the header we just hunted, or garbage if hunt failed)
-        # async_get_data will read from the buffer first
-        res_packet = await self.comm.async_get_data(
-            LGACPacket._RESPONSE_PACKET_SIZE, 
-            timeout=1.0 # Short timeout for body if we already timed out on header
-        )
+        # Optimized reading: try to read the full body size at once
+        res_packet = await self.comm.async_get_data_direct(LGACPacket._RESPONSE_PACKET_SIZE, reconnect_on_failure=allow_reconnect)
         return res_packet
 
     async def async_read_one_chunk(self, allow_reconnect: bool = True) -> bytes | None:
@@ -437,11 +422,13 @@ class LGACPacketHandler:
             if count_error:
                 await handle_max_read_error()
         finally:
+            # We don't necessarily need to close socket every time if we want persistent connection,
+            # but the original logic seemed to prefer closing or maybe it was just for safety.
+            # Let's keep close for now to match original behavior but async.
             # Actually, for RS485/TCP bridges, keeping connection might be better, but let's stick to safe close if that was the intent.
             # However, frequent open/close might be overhead.
             # The original code had `await self.comm.close_async_socket()` in finally.
-            if not self.persistent_connection:
-                 await self.comm.close_async_socket()
+            # await self.comm.close_async_socket()
             pass
             # self.send_and_get_state = False
 
