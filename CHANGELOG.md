@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.7
+- **Improvement**: Added a 0.2s delay immediately after establishing a TCP connection. This mitigates issues where some RS485 converters drop data if sent too quickly after the connection handshake.
+- **Note**: This delay applies to both persistent and non-persistent modes whenever a *new* connection is made.
+
 ## 1.3.6
 - **Feature**: Added `persistent_connection` option (Default: `true`). Set this to `false` to revert to the legacy behavior of closing the TCP connection after every command (might be more stable for some RS485 converters).
 - **Log**: Elevated "Writing X bytes..." log to `INFO` level to ensure outbound traffic is visible even at default log levels.

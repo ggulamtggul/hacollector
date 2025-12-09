@@ -75,6 +75,11 @@ class TCPComm:
                     self.reader, self.writer = reader, writer
                     self.connection_reset = False
                     color_log.log("Connected.", Color.Green, ColorLog.Level.INFO)
+                    
+                    # v1.3.7: Add small delay after connection to allow RS485 converter to settle
+                    # Used to avoid 'Buffer empty' issues on fresh connections
+                    await asyncio.sleep(0.2)
+                    
                     return
                 except Exception as e:
                     last_err = e
