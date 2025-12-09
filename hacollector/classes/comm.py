@@ -259,5 +259,10 @@ class TCPComm:
                 continue # loop to check timeout
             except Exception:
                 return False
-                
+        
+        # If we reach here, timeout occurred
+        if self.read_buffer:
+             ColorLog().log(f"Header Hunt Timeout. Buffer dump ({len(self.read_buffer)} bytes): {self.read_buffer.hex()}", Color.Yellow, ColorLog.Level.WARN)
+        else:
+             ColorLog().log("Header Hunt Timeout. Buffer empty.", Color.Yellow, ColorLog.Level.DEBUG)
         return False

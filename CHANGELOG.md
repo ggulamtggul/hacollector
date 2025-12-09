@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1
+- **Hotfix**: Increased default `rs485_timeout` from 0.5s to 2.0s. This resolves the `Read From LGAC FAIL!` recursion on slower devices/converters.
+- **Debug**: Added detailed buffer dump logging when Packet Hunting times out, helping diagnose protocol header mismatches.
+
 ## 1.3.0
 - **HA Integration**: Added `state_class: measurement` and `device_class: temperature` to MQTT discovery. Home Assistant now displays Statistics Graphs for temperature history.
 - **Process Stability**: Removed internal restart loop. The collector now exits cleanly on critical errors (`exit 1`), allowing HA Supervisor to handle restarts and logging natively.

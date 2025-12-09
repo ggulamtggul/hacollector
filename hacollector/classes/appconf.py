@@ -12,23 +12,6 @@ class MainConfig:
         self.aircon_server: str             = ''
         self.aircon_port: str               = '0'
         self.aircon_devicename: str         = ''
-        self.mqtt_anonymous: str            = ''
-        self.mqtt_server: str               = ''
-        self.mqtt_port: str                 = ''
-        self.mqtt_id: str                   = ''
-        self.mqtt_pw: str                   = ''
-        self.log_level: str                 = cfg.CONF_LOGLEVEL
-        self.min_temp: int                  = 18
-        self.max_temp: int                  = 30
-        self.scan_interval: float           = cfg.WALLPAD_SCAN_INTERVAL_TIME
-        self.rs485_timeout: float           = 0.5
-        self.rooms: dict[str, str]          = {}
-
-    def read_config_file(self, config: ConfigParser) -> bool:
-        color_log = ColorLog()
-        try:
-            # first, check RS485 Device
-            rs485_devices = config[cfg.CONF_RS485_DEVICES]
             if rs485_devices is not None and len(rs485_devices) >= 1:
                 aircon_section = None
                 for top_device in rs485_devices:
