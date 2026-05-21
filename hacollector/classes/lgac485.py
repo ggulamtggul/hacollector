@@ -155,7 +155,7 @@ class LGACPacket:
         self.str_opmode = operation
         self.str_fanmove = fanmove
         self.str_fanmode = fanspeed
-        self.set_temp = temp - 0x0f if 18 < temp <= 30 else 10
+        self.set_temp = temp - 0x0f if 18 <= temp <= 30 else 10
         self.set_detail_mode()
 
     def calc_temp(self, num: int) -> float:
