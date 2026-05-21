@@ -25,7 +25,7 @@ class Hub:
             # MQTT Discovery 트리거
             if self.mqtt_handler and self.mqtt_handler.start_discovery:
                 try:
-                    self.mqtt_handler.homeassistant_device_discovery(initial=True)
+                    await self.mqtt_handler.homeassistant_device_discovery(initial=True)
                 except Exception as e:
                     logger.debug(f"[Discovery]Error [{e}]")
 
