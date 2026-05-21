@@ -102,7 +102,7 @@ class MainConfig:
         if log_level:
             self.log_level = log_level
         if temperature_adjust:
-            cfg.TEMPERATURE_ADJUST = temperature_adjust
+            cfg.TEMPERATURE_ADJUST = float(temperature_adjust)
             
         # 온도 설정
         env_min_temp = os.getenv('MIN_TEMP')
