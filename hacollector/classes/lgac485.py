@@ -178,9 +178,6 @@ class LGACPacket:
         if self.str_fanmode == '':
             self.str_fanmode = PAYLOAD_LOW
 
-        if self.str_fanmode == '':
-            self.str_fanmode = PAYLOAD_LOW
-
         logger = logging.getLogger("LGACPacket")
         logger.debug(f"LGAC new_packet = [{self}]")
 
