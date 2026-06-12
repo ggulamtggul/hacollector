@@ -50,7 +50,6 @@ async def main():
     app_config.read_config_file(config)
 
     # Validate Final Configuration
-    # Validate Final Configuration
     if not app_config.validate():
         logger.error("Configuration is invalid! Missing Critical Fields.")
         sys.exit(1)
@@ -104,12 +103,28 @@ async def main():
         logger.critical(f"Error connecting MQTT Server: {e}")
         sys.exit(1)
 
+    # 자동 기기검색 실행
+    if app_config.auto_scan:
+        logger.info("Auto Scan is ENABLED. Running full auto-discovery...")
+        await aircon.async_auto_discover_devices()
+
+        # 새로 발견된 기기를 포함하여 enabled_list 재구성
+        enabled_list = []
+        enabled_list.extend(aircon.enabled_device_list)
+        mqtt.set_enabled_list(enabled_list)
+
+        # Discovery 재실행 (신규 자동등록 기기 포함)
+        await mqtt.homeassistant_device_discovery(initial=False)
+        logger.info("Auto Discovery complete. HA entities updated.")
+    else:
+        logger.info("Auto Scan is DISABLED. Running targeted scan only...")
+        await aircon.async_scan_all_devices()
+
     # 메인 태스크 실행
     tasks = [
         asyncio.create_task(aircon.async_lgac_main_write_loop()),
         asyncio.create_task(hub.async_scan_thread()),
-        asyncio.create_task(aircon.async_scan_all_devices()),
-        asyncio.create_task(heartbeat()) # Add Heartbeat
+        asyncio.create_task(heartbeat())
     ]
     
     try:

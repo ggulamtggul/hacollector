@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.0.1"   # 버전 업데이트
+SW_VERSION          = "2.0.0-dev"   # 릴리즈 시 자동 치환됨
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name

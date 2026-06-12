@@ -199,7 +199,14 @@ class MqttHandler:
         is_anonymous = True if self.anonymous == 'True' else False
         server = self.server
         port = self.port
-        self.mqtt_client = pahomqtt.Client()
+        try:
+            self.mqtt_client = pahomqtt.Client(
+                client_id=f"hacollector_{SERVICE_NAME}",
+                callback_api_version=pahomqtt.CallbackAPIVersion.VERSION1
+            )
+        except TypeError:
+            # Paho MQTT v1.x 호환
+            self.mqtt_client = pahomqtt.Client(client_id=f"hacollector_{SERVICE_NAME}")
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.on_subscribe = self.on_subscribe
         self.mqtt_client.on_connect = self.on_connect
@@ -282,7 +289,7 @@ class MqttHandler:
                     if dev_name == DeviceType.AIRCON: # Correctly compare Enum
                         # enabled_list is set in hacollector.py: enabled_list.append((DeviceType.AIRCON, self.aircon))
                         # DeviceType is enum.
-                         for room_aircon in enabled_device:
+                        for room_aircon in enabled_device:
                             if isinstance(room_aircon, Aircon) and room_aircon.room_name:
                                 self.publish_availability(room_aircon.room_name, PAYLOAD_ONLINE)
                 

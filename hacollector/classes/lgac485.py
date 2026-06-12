@@ -192,7 +192,7 @@ class LGACPacket:
 
         fan_speed = self.get_lgac_fanspeed_data(self.str_fanmode)
 
-        self.current_mode = mode | (fan_speed << 4) & 0xf0
+        self.current_mode = (mode & 0x0F) | ((fan_speed << 4) & 0xF0)
 
     def __repr__(self) -> str:
         return (
@@ -227,7 +227,6 @@ class LGACPacketHandler:
         self.enabled_device_list: list  = []
         self.aircon: list               = []
         self.type                       = None
-        self.type                       = None
         # Initialize reverse mapping here to capture runtime config updates
         if config and config.rooms:
             self.system_room_aircon_rev = {v: k for k, v in config.rooms.items()}
@@ -241,7 +240,8 @@ class LGACPacketHandler:
                 config.aircon_server,
                 int(config.aircon_port),
                 cfg.MAX_SOCKET_BUFFER,
-                cfg.PACKET_RESEND_INTERVAL_SEC
+                cfg.PACKET_RESEND_INTERVAL_SEC,
+                read_timeout=config.rs485_timeout
             )
         self.command_queue: asyncio.Queue = asyncio.Queue()
         self.loop: asyncio.AbstractEventLoop = loop if loop else asyncio.get_running_loop()
@@ -334,7 +334,11 @@ class LGACPacketHandler:
                 f"taregt_temp={aircon.target_temp}"
             )
             
-            aircon_no = int(self.get_room_aircon_number(room_str))
+            room_no_str = self.get_room_aircon_number(room_str)
+            if not room_no_str:
+                self.log.error(f"Unknown room: {room_str}")
+                return
+            aircon_no = int(room_no_str, 16)
             aircon_cmd = Aircon.Info(action_str, opmode_str, aircon.fanmove, aircon.fanmode, 0.0, aircon.target_temp)
 
             self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
@@ -424,6 +428,10 @@ class LGACPacketHandler:
         # need some wait
         try:
             await self.comm.connect_async_socket()
+            # 재연결 후 버퍼 오염 방지
+            if self.comm.connection_reset:
+                self._recv_buffer.clear()
+                self.comm.connection_reset = False
             ok: bool = await self.comm.async_write_one_chunk(send_packet)
             if ok:
                 await asyncio.sleep(cfg.RS485_WRITE_INTERVAL_SEC)
@@ -518,66 +526,100 @@ class LGACPacketHandler:
         return True
 
     async def async_scan_all_devices(self):
-        # 1. Targeted Scan (Fast Boot)
+        """Targeted scan: 이미 rooms에 등록된 기기만 스캔하여 상태를 발행합니다."""
         target_ids = sorted([int(x, 16) for x in self.rooms.keys()])
+        if not target_ids:
+            self.log.info("No rooms configured. Skipping targeted scan.")
+            return
+
         self.log.info(f"Starting Targeted Discovery Scan: {[f'0x{i:02x}' for i in target_ids]}")
         
-        found_devices = []
-        
-        # Scan configured rooms first
         for id in target_ids:
             info = await self.async_get_current_status(id, count_error=False)
             if self._is_valid_info(info, id):
                 self.log.info(f"FOUND DEVICE at ID: 0x{id:02x}")
-                found_devices.append(id)
+                self._publish_device_state(id, info)
+            await asyncio.sleep(1.0)
 
-                # [FIX] Immediately publish found device state and availability
-                for device in self.aircon:
-                    if device.id == id:
-                        # 1. Update State (Temp, Mode, etc.)
-                        if self.notify_to_homeassistant:
-                             self.notify_to_homeassistant(device.name, device.room_name, info)
-                        
-                        # 2. Update Availability (Online)
-                        if self.notify_availability:
-                             self.notify_availability(device.room_name, PAYLOAD_ONLINE)
-                             device.last_availability_status = PAYLOAD_ONLINE
-                        break
+    async def async_auto_discover_devices(self):
+        """
+        자동 기기 검색: RS485 주소 범위를 전수 스캔하여
+        유효한 기기를 Double-Check 후 자동 등록합니다.
+        """
+        scan_range = self.config.auto_scan_range if self.config else 16
+        self.log.info(f"=== AUTO DISCOVERY START (Range: 0x00 ~ 0x{scan_range - 1:02x}) ===")
 
-            # Scan delay
-            await asyncio.sleep(1.0) # slightly faster for targeted
+        # Phase 1: 1차 스캔 — 응답하는 ID 수집
+        self.log.info("[Phase 1] Scanning for responsive devices...")
+        candidates = []
+        for id in range(scan_range):
+            info = await self.async_get_current_status(id, count_error=False)
+            if self._is_valid_info(info, id, verbose=False):
+                self.log.info(f"  [Phase 1] Candidate found at 0x{id:02x} (temp={info.cur_temp}°C, mode={info.opmode})")
+                candidates.append((id, info))
+            await asyncio.sleep(0.8)
 
-        # 2. Full Scan (Optional)
-        if hasattr(self, 'config') and self.config.full_scan_on_boot:
-             self.log.info("Starting Full Range Scan (0x00 - 0x0F) as requested...")
-             for id in range(16):
-                 if id in target_ids:
-                     continue # Already scanned
-                 
-                 info = await self.async_get_current_status(id, count_error=False)
-                 if self._is_valid_info(info, id):
-                     self.log.info(f"FOUND DEVICE at ID: 0x{id:02x}")
-                     found_devices.append(id)
-                     
-                     # [FIX] Immediately publish found device state and availability (Full Scan)
-                     for device in self.aircon:
-                        if device.id == id:
-                            if self.notify_to_homeassistant:
-                                 self.notify_to_homeassistant(device.name, device.room_name, info)
-                            if self.notify_availability:
-                                 self.notify_availability(device.room_name, PAYLOAD_ONLINE)
-                                 device.last_availability_status = PAYLOAD_ONLINE
-                            break
+        if not candidates:
+            self.log.warning("=== AUTO DISCOVERY COMPLETE: No devices found ===")
+            return
 
-                 await asyncio.sleep(1.0)
-        else:
-            self.log.debug("Skipping full range scan (enabled 'full_scan_on_boot' to scan 0x00-0x0F)")
+        self.log.info(f"[Phase 1] {len(candidates)} candidate(s) found. Starting verification...")
 
-        if found_devices:
-            self.log.info(f"Scan Complete. Found devices at IDs: {[f'0x{i:02x}' for i in found_devices]}")
-            self.log.info("Please update your configuration with these IDs.")
-        else:
-            self.log.warning("Scan Complete. No devices found.")
+        # Phase 2: 2차 검증 스캔 — Ghost Device 방지 (Double-Check)
+        self.log.info("[Phase 2] Verifying candidates (Double-Check)...")
+        verified = []
+        for id, first_info in candidates:
+            await asyncio.sleep(1.0)
+            second_info = await self.async_get_current_status(id, count_error=False)
+            if self._is_valid_info(second_info, id, verbose=False):
+                self.log.info(f"  [Phase 2] VERIFIED device at 0x{id:02x}")
+                verified.append((id, second_info))
+            else:
+                self.log.warning(f"  [Phase 2] REJECTED device at 0x{id:02x} (failed verification)")
+
+        if not verified:
+            self.log.warning("=== AUTO DISCOVERY COMPLETE: All candidates failed verification ===")
+            return
+
+        # Phase 3: 미등록 기기 자동 추가
+        new_count = 0
+        for id, info in verified:
+            hex_id = f'{id:02x}'
+            if hex_id not in self.rooms:
+                auto_name = f'auto_room_0x{id:02x}'
+                self.rooms[hex_id] = auto_name
+                cfg.SYSTEM_ROOM_AIRCON[hex_id] = auto_name
+                self.system_room_aircon_rev[auto_name] = hex_id
+
+                new_aircon = Aircon(auto_name)
+                new_aircon.id = id
+                new_aircon.set_initial_state()
+                self.aircon.append(new_aircon)
+                new_count += 1
+                self.log.info(f"  AUTO-REGISTERED: 0x{id:02x} -> '{auto_name}'")
+            else:
+                self.log.debug(f"  Device 0x{id:02x} already configured as '{self.rooms[hex_id]}'")
+
+        # Phase 4: 발견된 전체 기기의 상태 및 availability 발행
+        for id, info in verified:
+            self._publish_device_state(id, info)
+
+        # enabled_device_list 재구성 (새 기기 포함)
+        self.enabled_device_list.clear()
+        self.enabled_device_list.append((DeviceType.AIRCON, self.aircon))
+
+        self.log.info(f"=== AUTO DISCOVERY COMPLETE: {len(verified)} device(s) verified, {new_count} newly registered ===")
+
+    def _publish_device_state(self, id: int, info: 'Aircon.Info'):
+        """발견된 기기의 상태와 availability를 즉시 발행합니다."""
+        for device in self.aircon:
+            if device.id == id:
+                if hasattr(self, 'notify_to_homeassistant') and self.notify_to_homeassistant:
+                    self.notify_to_homeassistant(device.name, device.room_name, info)
+                if self.notify_availability:
+                    self.notify_availability(device.room_name, PAYLOAD_ONLINE)
+                    device.last_availability_status = PAYLOAD_ONLINE
+                break
 
     async def async_scan_aircon_status(self, device_obj: Aircon):
         room_no_str = self.get_room_aircon_number(device_obj.room_name)

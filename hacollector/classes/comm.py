@@ -17,7 +17,7 @@ class TCPComm:
     - Retries reads/writes once after reconnecting if the socket broke
     - Avoids concurrent connect/close races via a lock
     """
-    def __init__(self, server: str, port: int, buffer_size: int = 2048, interval: float = 0.0) -> None:
+    def __init__(self, server: str, port: int, buffer_size: int = 2048, interval: float = 0.0, read_timeout: float = 2.0) -> None:
         self.server                     = server
         self.port                       = int(port)
         self.buffer_size                = buffer_size
@@ -29,6 +29,7 @@ class TCPComm:
         self.writer: Optional[asyncio.StreamWriter] = None
         self._conn_lock: asyncio.Lock   = asyncio.Lock()
         self._closing: bool             = False
+        self._read_timeout: float       = read_timeout
 
     @classmethod
     async def async_init(cls, server: str, port: int, buffer_size: int = 2048, interval: float = 0.0):
@@ -40,7 +41,7 @@ class TCPComm:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             # Platform-specific tuning; best-effort
             if hasattr(socket, "TCP_KEEPIDLE"):
-                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30)
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 10)
             if hasattr(socket, "TCP_KEEPINTVL"):
                 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
             if hasattr(socket, "TCP_KEEPCNT"):
@@ -75,6 +76,8 @@ class TCPComm:
                         sock.settimeout(None)
                     self.reader, self.writer = reader, writer
                     self.connection_reset = False
+                    # RS485 게이트웨이(EW11) 안정화 대기
+                    await asyncio.sleep(0.3)
                     logger.info("Connected.")
                     return
                 except Exception as e:
@@ -218,7 +221,7 @@ class TCPComm:
         try:
             assert self.reader is not None
             # read() return b'' if EOF.
-            buffer = await asyncio.wait_for(self.reader.read(length), timeout=1.0)
+            buffer = await asyncio.wait_for(self.reader.read(length), timeout=self._read_timeout)
             if buffer == b'':
                 # Peer closed connection
                 logging.getLogger("TCPComm").debug("Stream EOF detected.")
