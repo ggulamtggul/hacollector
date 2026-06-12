@@ -3,7 +3,7 @@ version: "2.0.0"
 slug: "hacollector"
 description: "LG System Aircon (RS485) Collector with Auto Discovery"
 url: "https://github.com/ggulamtggul/hacollector"
-image: "ghcr.io/ggulamtggul/hacollector/{arch}"
+image: "ghcr.io/ggulamtggul/hacollector"
 startup: application
 init: false
 arch:
