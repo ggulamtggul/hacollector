@@ -81,6 +81,8 @@ jobs:
             latest
           push: ${{ github.event_name == 'release' && 'true' || 'false' }}
           version: ${{ github.event.release.tag_name || 'dev' }}
+          build-args: |
+            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base-python:3.13-alpine3.21
 
   manifest:
     name: Publish multi-arch manifest
