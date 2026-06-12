@@ -73,6 +73,7 @@ jobs:
       - name: Build image
         uses: home-assistant/builder/actions/build-image@2026.03.2
         with:
+          context: hacollector
           arch: ${{ matrix.arch }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           image: ${{ matrix.image }}
