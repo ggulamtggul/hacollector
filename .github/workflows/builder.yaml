@@ -78,10 +78,10 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           image: ${{ matrix.image }}
           image-tags: |
-            ${{ github.event.release.tag_name }}
+            ${{ needs.sync-version.outputs.version }}
             latest
           push: ${{ github.event_name == 'release' && 'true' || 'false' }}
-          version: ${{ github.event.release.tag_name || 'dev' }}
+          version: ${{ needs.sync-version.outputs.version || 'dev' }}
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base-python:3.13-alpine3.21
 
@@ -101,5 +101,5 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           image-name: ${{ env.IMAGE_NAME }}
           image-tags: |
-            ${{ github.event.release.tag_name }}
+            ${{ needs.sync-version.outputs.version }}
             latest
