@@ -1,0 +1,49 @@
+name: Builder Dev
+
+env:
+  BUILD_ARGS: ""
+  MONITORED_FILES: "hacollector-dev"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'hacollector-dev/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build Dev ${{ matrix.arch }} ${{ matrix.addon }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        addon: ["hacollector-dev"]
+        arch: [aarch64, amd64]
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build ${{ matrix.addon }} add-on
+        uses: home-assistant/builder@2026.02.1
+        with:
+          args: |
+            ${{ env.BUILD_ARGS }} \
+            --${{ matrix.arch }} \
+            --target ${{ matrix.addon }} \
+            --image "${{ matrix.addon }}/{arch}" \
+            --docker-hub "ghcr.io/${{ github.repository_owner }}" \
+            --addon \
+            --additional-tag latest

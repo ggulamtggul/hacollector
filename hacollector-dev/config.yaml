@@ -1,0 +1,49 @@
+name: "HA Collector (Dev)"
+version: "1.0.4-dev"
+slug: "hacollector-dev"
+description: "LG System Aircon (RS485) Collector"
+url: "https://github.com/ggulamtggul/hacollector"
+image: "ghcr.io/ggulamtggul/hacollector-dev/{arch}"
+startup: application
+init: false
+arch:
+  - aarch64
+  - amd64
+options:
+  lg_server_ip: "192.168.0.100"
+  lg_server_port: 8899
+  mqtt_server: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
+  rooms:
+    - name: livingroom
+      id: 0
+    - name: bedroom
+      id: 1
+  min_temp: 18
+  max_temp: 30
+  scan_interval: 20
+  rs485_timeout: 2.0
+  persistent_connection: true
+  full_scan_on_boot: false
+  log_level: "info"
+schema:
+  lg_server_ip: str
+  lg_server_port: int
+  mqtt_server: str
+  mqtt_port: int
+  mqtt_username: str
+  mqtt_password: str
+  rooms:
+    - name: str
+      id: int
+  min_temp: int
+  max_temp: int
+  scan_interval: int
+  rs485_timeout: float
+  persistent_connection: bool
+  full_scan_on_boot: bool
+  log_level: str
+map:
+  - config:rw

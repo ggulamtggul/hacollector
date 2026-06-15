@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.4-dev (Development Addon)
+- **Feature**: Created `hacollector-dev` add-on for safe development and staging.
+- **Performance**: Implemented asyncio command queue deduplication (debouncing) to discard outdated control actions on continuous inputs.
+- **Reliability**: Configured MQTT Discovery `unique_id` to strictly use the indoor unit's physical address (ID) for preventing history loss on renaming.
+- **Migration**: Upgraded `paho-mqtt` library to `>=2.0.0` and migrated callbacks to VERSION2 API format.
+- **Cleanup**: Removed legacy `.ini` configuration parser from `appconf.py`.
+
+## 1.0.3
+- **Fix (Critical)**: Resolved the bug where auto mode wouldn't turn off. Fixed by removing incorrect action overrides during scans.
+- **Chore**: Pinned `paho-mqtt` dependency to `<2.0.0` for temporary stability.
+- **Build**: Fixed builder workflow arguments.
+
 ## 1.3.24
 - **Cleanup**: Removed temporary `[TempDebug]` logs as temperature updates are confirmed working.
 

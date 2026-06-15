@@ -53,7 +53,9 @@ rooms:
    ```
    https://github.com/ggulamtggul/hacollector
    ```
-2. **설치**: "HA Collector" 애드온 선택 후 설치
+2. **설치**: 
+   * **정식 버전**: **"HA Collector"** 애드온 선택 후 설치 (실구동 안정 버전)
+   * **개발 및 테스트 버전**: **"HA Collector (Dev)"** 애드온 선택 후 설치 (1.0.4-dev 최신 개선 기능 포함)
 3. **설정**: 설정 탭에서 IP 및 방 정보 입력
 4. **시작**: 애드온 시작 (로그 확인)
 
