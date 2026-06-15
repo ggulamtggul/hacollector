@@ -481,8 +481,6 @@ class LGACPacketHandler:
                     aircon_info: Aircon.Info | None = await self.async_send_and_get_result(0, aircon_no, aircon_cmd, count_error)
                     if aircon_info:
                         self.log.debug(f"Returned Get Aircon Status : {aircon_info.opmode})")
-                        if aircon_info.opmode == PAYLOAD_AUTO:
-                            aircon_info.action = PAYLOAD_ON
                         return aircon_info
         except asyncio.TimeoutError:
              self.log.debug(f"Timeout waiting for lock in get_status({aircon_no})")
