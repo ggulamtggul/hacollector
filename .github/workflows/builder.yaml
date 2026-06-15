@@ -61,7 +61,7 @@ jobs:
           grep "SW_VERSION" hacollector/consts.py
 
       - name: Build ${{ matrix.addon }} add-on
-        uses: home-assistant/builder@master
+        uses: home-assistant/builder@2026.02.1
         with:
           args: |
             ${{ env.BUILD_ARGS }} \
@@ -70,4 +70,4 @@ jobs:
             --image "${{ matrix.addon }}/{arch}" \
             --docker-hub "ghcr.io/${{ github.repository_owner }}" \
             --addon \
-            --tag-latest
+            --additional-tag latest
