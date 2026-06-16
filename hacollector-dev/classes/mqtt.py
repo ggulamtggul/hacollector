@@ -72,11 +72,21 @@ class Discovery:
             'name': None, # Inherit from device name
             'uniq_id': f'{stable_id}_climate',
             'device': device_info,
-            'pl_avail': PAYLOAD_ONLINE,
-            'pl_not_avail': PAYLOAD_OFFLINE,
+            'availability_mode': 'all',
+            'availability': [
+                {
+                    'topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability',
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                },
+                {
+                    'topic': availability_topic,
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                }
+            ],
             'stat_t': f'{aircon_common_topic_str}/{MQTT_STATE}',
             'json_attr_t': f'{aircon_common_topic_str}/{MQTT_STATE}',
-            'avail_t': availability_topic,
             'ic': icon_name
         }
         
@@ -124,9 +134,19 @@ class Discovery:
             'device_class': 'temperature',
             'state_class': 'measurement',
             'unit_of_measurement': '°C',
-            'avail_t': availability_topic,
-            'pl_avail': PAYLOAD_ONLINE,
-            'pl_not_avail': PAYLOAD_OFFLINE
+            'availability_mode': 'all',
+            'availability': [
+                {
+                    'topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability',
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                },
+                {
+                    'topic': availability_topic,
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                }
+            ]
         }
         results.append((sensor_topic, sensor_payload))
         
