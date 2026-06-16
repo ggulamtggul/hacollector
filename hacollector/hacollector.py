@@ -1,5 +1,4 @@
 import asyncio
-import configparser
 import logging
 import pathlib
 import sys
@@ -41,13 +40,7 @@ async def main():
     load_dotenv()
     app_config.load_env_values()
 
-    # 설정 파일 읽기 (Legacy Support, Optional)
-    conf_path = root_dir / cfg.CONF_FILE
-    config = configparser.ConfigParser()
-    config.read(conf_path)
-    
-    # Merge Legacy Config if exists
-    app_config.read_config_file(config)
+
 
     # Validate Final Configuration
     # Validate Final Configuration

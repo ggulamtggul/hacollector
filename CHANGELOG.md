@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4
+- **Performance**: Implemented asyncio command queue deduplication (debouncing) to discard outdated control actions on continuous inputs.
+- **Reliability**: Configured MQTT Discovery `unique_id` to strictly use the indoor unit's physical address (ID) for preventing history loss on renaming.
+- **Availability**: Implemented multiple availability topics (global LWT + per-device availability) to make entities correctly turn `unavailable` when the addon container stops.
+- **Migration**: Upgraded `paho-mqtt` library to `>=2.0.0` and migrated callbacks to VERSION2 API format.
+- **Cleanup**: Removed legacy `.ini` configuration parser from `appconf.py`.
+
 ## 1.0.4-dev (Development Addon)
 - **Feature**: Created `hacollector-dev` add-on for safe development and staging.
 - **Performance**: Implemented asyncio command queue deduplication (debouncing) to discard outdated control actions on continuous inputs.

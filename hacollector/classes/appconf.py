@@ -4,7 +4,6 @@ import os
 import json
 import logging
 import pathlib
-from configparser import ConfigParser
 
 import config as cfg
 from classes.utils import Color
@@ -28,37 +27,6 @@ class MainConfig:
         self.persistent_connection: bool    = True
         self.full_scan_on_boot: bool        = False
         self.rooms: dict[str, str]          = {}
-
-    def read_config_file(self, config: ConfigParser) -> bool:
-        logger = logging.getLogger("MainConfig")
-        try:
-            # first, check RS485 Device
-            rs485_devices = config[cfg.CONF_RS485_DEVICES] if cfg.CONF_RS485_DEVICES in config else None
-            
-            if rs485_devices is not None and len(rs485_devices) >= 1:
-                aircon_section = None
-                for top_device in rs485_devices:
-                    if top_device == cfg.CONF_AIRCON_DEVICE_NAME.lower():
-                        aircon_section = rs485_devices[top_device]
-                
-                if aircon_section is not None:
-                    aircon_info = config[aircon_section]
-                    self.aircon_server      = aircon_info.get('server', '')
-                    self.aircon_port        = aircon_info.get('port', '0')
-                    self.aircon_devicename  = aircon_info.get('device', '')
-            
-            # mqtt
-            mqtt_section = config[cfg.CONF_MQTT] if cfg.CONF_MQTT in config else None
-            if mqtt_section is not None:
-                self.mqtt_anonymous = mqtt_section.get('anonymous', 'False')
-                self.mqtt_server    = mqtt_section.get('server', '')
-                self.mqtt_port      = mqtt_section.get('port', '1883')
-                self.mqtt_id        = mqtt_section.get('username', '')
-                self.mqtt_pw        = mqtt_section.get('password', '')
-        except Exception as e:
-            logger.critical(f"Error in reading config file.[{e}]")
-            return False
-        return True
 
     def validate(self) -> bool:
         logger = logging.getLogger("MainConfig")

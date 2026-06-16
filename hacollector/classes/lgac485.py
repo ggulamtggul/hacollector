@@ -610,6 +610,18 @@ class LGACPacketHandler:
             # await asyncio.sleep(0.01) # Asyncio Queue get handles waiting efficiently
             (aircon_no, room_str, aircon_cmd) = await self.command_queue.get()
             
+            # [Queue Debounce] Skip if there is a newer command in the queue for the same aircon
+            has_newer = False
+            for item in self.command_queue._queue:
+                if item[0] == aircon_no:
+                    has_newer = True
+                    break
+            
+            if has_newer:
+                self.log.debug(f"[Queue Debounce] Discarding outdated command for {room_str} (aircon #{aircon_no})")
+                self.command_queue.task_done()
+                continue
+            
             assert isinstance(aircon_cmd, Aircon.Info)
             aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
             if aircon_info:

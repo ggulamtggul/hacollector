@@ -53,7 +53,7 @@ class Discovery:
         if uid is not None:
              stable_id = f'lg_aircon_rs485_{uid:02x}'
         else:
-             stable_id = f'{cfg.CONF_AIRCON_DEVICE_NAME}_{room_safe}_{device}'
+             stable_id = f'lg_aircon_rs485_fallback_{device}'
 
         device_info = {
             'name': f'LG System Aircon {room}',
@@ -72,11 +72,21 @@ class Discovery:
             'name': None, # Inherit from device name
             'uniq_id': f'{stable_id}_climate',
             'device': device_info,
-            'pl_avail': PAYLOAD_ONLINE,
-            'pl_not_avail': PAYLOAD_OFFLINE,
+            'availability_mode': 'all',
+            'availability': [
+                {
+                    'topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability',
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                },
+                {
+                    'topic': availability_topic,
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                }
+            ],
             'stat_t': f'{aircon_common_topic_str}/{MQTT_STATE}',
             'json_attr_t': f'{aircon_common_topic_str}/{MQTT_STATE}',
-            'avail_t': availability_topic,
             'ic': icon_name
         }
         
@@ -124,9 +134,19 @@ class Discovery:
             'device_class': 'temperature',
             'state_class': 'measurement',
             'unit_of_measurement': '°C',
-            'avail_t': availability_topic,
-            'pl_avail': PAYLOAD_ONLINE,
-            'pl_not_avail': PAYLOAD_OFFLINE
+            'availability_mode': 'all',
+            'availability': [
+                {
+                    'topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability',
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                },
+                {
+                    'topic': availability_topic,
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                }
+            ]
         }
         results.append((sensor_topic, sensor_payload))
         
@@ -199,7 +219,7 @@ class MqttHandler:
         is_anonymous = True if self.anonymous == 'True' else False
         server = self.server
         port = self.port
-        self.mqtt_client = pahomqtt.Client()
+        self.mqtt_client = pahomqtt.Client(callback_api_version=pahomqtt.CallbackAPIVersion.VERSION2)
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.on_subscribe = self.on_subscribe
         self.mqtt_client.on_connect = self.on_connect
@@ -328,9 +348,9 @@ class MqttHandler:
             topic = f'{cfg.CONF_AIRCON_DEVICE_NAME}/{room_safe}/availability'
             self.mqtt_client.publish(topic, status, retain=True)
 
-    def on_connect(self, client, userdata, flags, rc):
+    def on_connect(self, client, userdata, flags, reason_code, properties):
         logger = logging.getLogger("MQTT")
-        if int(rc) == 0:
+        if reason_code == 0:
             logger.info("[MQTT] Connected OK")
             # 연결 즉시 온라인 상태 전송
             client.publish(self.availability_topic, PAYLOAD_ONLINE, retain=True)
@@ -340,10 +360,10 @@ class MqttHandler:
             # This callback runs in a separate thread (paho loop), so we must use threadsafe scheduling
             asyncio.run_coroutine_threadsafe(self.homeassistant_device_discovery(initial=True), self.loop)
         else:
-            logger.error(f"[MQTT] Connection Failed: rc={rc}")
+            logger.error(f"[MQTT] Connection Failed: reason_code={reason_code}")
             self.mqtt_connect_error = True
 
-    def on_message(self, client, obj, msg: pahomqtt.MQTTMessage):
+    def on_message(self, client, userdata, msg: pahomqtt.MQTTMessage):
         if not self.ignore_handling:
             rcv_topic = msg.topic.split('/')
             rcv_payload = msg.payload.decode()
@@ -365,5 +385,5 @@ class MqttHandler:
             if not self.start_discovery:
                 self.handle_message_from_mqtt(rcv_topic, rcv_payload)
 
-    def on_subscribe(self, client, obj, mid, granted_qos):
+    def on_subscribe(self, client, userdata, mid, reason_codes, properties):
         pass
