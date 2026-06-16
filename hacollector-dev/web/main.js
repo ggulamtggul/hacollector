@@ -121,7 +121,7 @@ function renderAircons(aircons) {
     
     let html = "";
     aircons.forEach(ac => {
-        const isOff = ac.action === 'off';
+        const isOff = ac.action === 'off' || ac.action === '';
         const isOnline = ac.available === 'online' || ac.available === '';
         
         // 가용성 상태 스타일
