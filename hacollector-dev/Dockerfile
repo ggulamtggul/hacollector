@@ -12,6 +12,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 RUN mkdir -p /hacollector/classes
 COPY hacollector.py /hacollector
 COPY classes/*.py /hacollector/classes/
+COPY web/ /hacollector/web/
 COPY config.py /hacollector
 COPY consts.py /hacollector
 COPY hacollector.conf.example /hacollector

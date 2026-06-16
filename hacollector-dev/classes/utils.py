@@ -60,4 +60,30 @@ def setup_logging(level_name: str = 'INFO'):
     ch.setFormatter(CustomFormatter())
     logger.addHandler(ch)
 
+    # Register InMemoryLogHandler if not already registered
+    if in_memory_log_handler not in logger.handlers:
+        logger.addHandler(in_memory_log_handler)
+
+
+import collections
+
+class InMemoryLogHandler(logging.Handler):
+    def __init__(self, max_len=200):
+        super().__init__()
+        self.logs = collections.deque(maxlen=max_len)
+        self.formatter = logging.Formatter("%(asctime)s %(levelname)8s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.logs.append(msg)
+        except Exception:
+            self.handleError(record)
+
+    def get_logs(self) -> list[str]:
+        return list(self.logs)
+
+# Global in-memory log handler instance
+in_memory_log_handler = InMemoryLogHandler()
+
 

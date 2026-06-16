@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0-dev (Development Addon)
+- **Feature**: Integrated Ingress Web Console (Dashboard) for real-time monitoring and control.
+- **Feature**: Added `InMemoryLogHandler` to stream the latest 200 logs on the web console without disk wear.
+- **Feature**: Added iframe-based sidebar panel navigation (`panel: true`).
+- **Chore**: Bumped development dependencies and added `aiohttp` web server.
+
 ## 1.0.4
 - **Performance**: Implemented asyncio command queue deduplication (debouncing) to discard outdated control actions on continuous inputs.
 - **Reliability**: Configured MQTT Discovery `unique_id` to strictly use the indoor unit's physical address (ID) for preventing history loss on renaming.

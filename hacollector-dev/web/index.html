@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HA Collector Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: radial-gradient(circle at top right, #1e1b4b, #09090b);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .console-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .console-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        .console-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .console-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="glass rounded-2xl p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-indigo-600/20 rounded-xl border border-indigo-500/30 text-indigo-400">
+                    <!-- AC Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 animate-pulse">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">HA Collector Web Console</h1>
+                    <p class="text-sm text-slate-400" id="version-string">Loading version information...</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="conn-badge" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    MQTT Connected
+                </span>
+                <button onclick="refreshData()" class="p-2.5 glass rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left & Center: Aircon List (Grid) -->
+            <section class="lg:col-span-2 space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-slate-300 flex items-center gap-2">
+                        <span class="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
+                        실내기 장치 상태 및 제어
+                    </h2>
+                    <span class="text-xs text-slate-500" id="ac-count">장치: 0대</span>
+                </div>
+                
+                <!-- Aircon Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="aircon-grid">
+                    <!-- Cards will be injected dynamically -->
+                    <div class="lg:col-span-2 py-12 flex flex-col items-center justify-center glass rounded-2xl text-slate-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 mb-2 animate-bounce">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p>장치 상태를 수집 중입니다...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: Config & Logs -->
+            <section class="space-y-6">
+                
+                <!-- System Config -->
+                <div>
+                    <h2 class="text-lg font-bold text-slate-300 flex items-center gap-2 mb-4">
+                        <span class="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
+                        시스템 설정 정보
+                    </h2>
+                    <div class="glass rounded-2xl p-5 space-y-4 text-sm">
+                        <div class="flex justify-between border-b border-white/5 pb-2">
+                            <span class="text-slate-400">RS485 IP</span>
+                            <span class="font-semibold" id="cfg-ip">-</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/5 pb-2">
+                            <span class="text-slate-400">RS485 PORT</span>
+                            <span class="font-semibold" id="cfg-port">-</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/5 pb-2">
+                            <span class="text-slate-400">MQTT 브로커</span>
+                            <span class="font-semibold" id="cfg-mqtt-ip">-</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/5 pb-2">
+                            <span class="text-slate-400">MQTT 포트</span>
+                            <span class="font-semibold" id="cfg-mqtt-port">-</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/5 pb-2">
+                            <span class="text-slate-400">온도 범위</span>
+                            <span class="font-semibold" id="cfg-temp-range">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">스캔 주기</span>
+                            <span class="font-semibold" id="cfg-scan-interval">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Alert -->
+                <div class="p-4 bg-indigo-950/25 border border-indigo-500/25 rounded-2xl text-xs text-indigo-300 flex gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 shrink-0">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 111.063.852l-.708 2.836a.75.75 0 001.063.852l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                    </svg>
+                    <div>
+                        <p class="font-bold mb-1">안내</p>
+                        <p class="leading-relaxed">여기서 조작하는 명령은 즉시 RS485 패킷 전송 대기열(Queue)로 인입되며, 에어컨 측의 응답 패킷을 확인한 후 홈어시스턴트 상태 대시보드로 최종 동기화됩니다.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Full-width: Realtime Console Logs -->
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-bold text-slate-300 flex items-center gap-2">
+                    <span class="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
+                    실시간 통신 로그 (최신 200줄)
+                </h2>
+                <div class="flex gap-2">
+                    <span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-zinc-400 border border-zinc-700">Memory Log</span>
+                </div>
+            </div>
+            <!-- Console Box -->
+            <div class="w-full bg-zinc-950/80 border border-white/5 rounded-2xl p-4 font-mono text-xs leading-relaxed text-slate-300 overflow-y-auto h-72 console-scrollbar" id="log-console">
+                <div class="text-zinc-600">// Log console initialized... Waiting for updates</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- main.js 로드 -->
+    <script src="main.js"></script>
+</body>
+</html>

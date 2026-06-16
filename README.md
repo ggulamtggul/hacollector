@@ -3,9 +3,10 @@
 **Home Assistant Add-on for LG System Aircon (RS485)**  
 이 애드온은 RS485 to Ethernet 게이트웨이(예: EW11)를 통해 LG 시스템 에어컨을 Home Assistant의 MQTT와 연동해주는 도구입니다.
 
-Current Version: **v1.0.0**
+Current Version: **v1.1.0-dev**
 
 ## ✨ 주요 기능
+* **Ingress 웹 콘솔(대시보드)**: 홈어시스턴트 사이드바에서 실시간 에어컨 상태 모니터링/제어 및 시스템 로그 확인이 가능한 프리미엄 대시보드 제공
 * **완벽한 제어**: 온도, 운전 모드(냉방/난방/제습/송풍/자동), 풍량, 스윙, 전원 제어
 * **Home Assistant Auto Discovery**: 설정된 에어컨(Climate) 장치를 HA에 자동으로 등록합니다.
 * **고성능 아키텍처**:
