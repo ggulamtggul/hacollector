@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1-dev (Development Addon)
+- **Refactor**: Cleaned up Ingress Web Console (aiohttp web server, templates, Docker layers) to reduce resource footprint.
+- **Feature**: Implemented selective INFO logging to print critical control signals and conditional state changes (e.g. remote controller inputs) without log bloat.
+- **Fix**: Resolved status scan logging loop where local Aircon state was not assigned.
+
 ## 1.1.0-dev (Development Addon)
 - **Feature**: Integrated Ingress Web Console (Dashboard) for real-time monitoring and control.
 - **Feature**: Added `InMemoryLogHandler` to stream the latest 200 logs on the web console without disk wear.
