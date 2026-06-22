@@ -618,6 +618,12 @@ class LGACPacketHandler:
             if changed and device_obj.action != '':
                 self.log.info(f"[Status Changed] '{device_obj.room_name}' (ID: 0x{no:02x}) updated: " + " | ".join(changed))
 
+            # Update local device object state to prevent redundant logging
+            device_obj.action = aircon_info.action
+            device_obj.opmode = aircon_info.opmode
+            device_obj.target_temp = aircon_info.target_temp
+            device_obj.current_temp = aircon_info.cur_temp
+
             self.notify_to_homeassistant(device_obj.name, device_obj.room_name, aircon_info)
 
     async def async_scan_aircons(self, now: float):
