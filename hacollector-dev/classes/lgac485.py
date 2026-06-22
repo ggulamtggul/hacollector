@@ -337,6 +337,11 @@ class LGACPacketHandler:
             aircon_no = int(self.get_room_aircon_number(room_str))
             aircon_cmd = Aircon.Info(action_str, opmode_str, aircon.fanmove, aircon.fanmode, 0.0, aircon.target_temp)
 
+            self.log.info(
+                f"[MQTT Command] Received control request for '{room_str}' (ID: 0x{aircon_no:02x}) -> "
+                f"Action: {action_str}, Mode: {opmode_str}, Temp: {aircon.target_temp}C, Fan: {aircon.fanmode}"
+            )
+
             self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
             
             self.log.debug(
@@ -446,9 +451,14 @@ class LGACPacketHandler:
                         new_packet.set_temp
                     )
                     self.read_error_count = 0
+                    if airconset.action != PAYLOAD_STATUS:
+                        self.log.info(f"[RS485 Success] 에어컨 #{id} (Group {group_no}) responded OK. State synced.")
                 else:
                     if count_error:
-                        self.log.warning("Read From LGAC FAIL! (Timeout or No valid packet)")
+                        if airconset.action != PAYLOAD_STATUS:
+                            self.log.warning(f"[RS485 Fail] 에어컨 #{id} (Group {group_no}) write failed (Timeout/No Response).")
+                        else:
+                            self.log.warning("Read From LGAC FAIL! (Timeout or No valid packet)")
                     else:
                         self.log.debug("Read From LGAC FAIL! (Scanning empty slot)")
                         
@@ -594,6 +604,20 @@ class LGACPacketHandler:
                  device_obj.last_availability_status = status
 
         if aircon_info:
+            # Check for state changes (e.g. Remote Controller actions)
+            changed = []
+            if device_obj.action != aircon_info.action:
+                changed.append(f"Power: {device_obj.action or 'off'} -> {aircon_info.action}")
+            if device_obj.opmode != aircon_info.opmode:
+                changed.append(f"Mode: {device_obj.opmode or 'none'} -> {aircon_info.opmode}")
+            if device_obj.target_temp != aircon_info.target_temp:
+                changed.append(f"TargetTemp: {device_obj.target_temp}C -> {aircon_info.target_temp}C")
+            if abs(device_obj.current_temp - aircon_info.cur_temp) >= 0.5:
+                changed.append(f"RoomTemp: {device_obj.current_temp}C -> {aircon_info.cur_temp}C")
+
+            if changed and device_obj.action != '':
+                self.log.info(f"[Status Changed] '{device_obj.room_name}' (ID: 0x{no:02x}) updated: " + " | ".join(changed))
+
             self.notify_to_homeassistant(device_obj.name, device_obj.room_name, aircon_info)
 
     async def async_scan_aircons(self, now: float):
@@ -623,6 +647,10 @@ class LGACPacketHandler:
                 continue
             
             assert isinstance(aircon_cmd, Aircon.Info)
+            self.log.info(
+                f"[RS485 Write] Sending write packet to 에어컨 #{aircon_no} ({room_str}) -> "
+                f"Set Temp: {aircon_cmd.target_temp}C, Action: {aircon_cmd.action}, Mode: {aircon_cmd.opmode}"
+            )
             aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
             if aircon_info:
                 self.notify_to_homeassistant(DEVICE_AIRCON, room_str, aircon_info)
