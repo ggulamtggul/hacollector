@@ -4,7 +4,6 @@ import pathlib
 import sys
 
 from dotenv import load_dotenv
-
 import config as cfg
 from classes.appconf import MainConfig
 from classes.hub import Hub
