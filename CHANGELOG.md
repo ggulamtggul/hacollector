@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.3-dev (Development Addon)
+- **Fix**: Disabled `Safe Flush` before write commands as it proactively consumed response packets, causing scan timeouts.
+- **Log**: Enhanced `Packet Hunter` debugging logs to trace packet ID matching, interceptions, and timeouts.
+
 ## 1.1.2-dev (Development Addon)
 - **Fix**: Implemented `Safe Flush` mechanism to drain and parse pending socket bytes immediately before writing a new command, preventing Remote Controller event loss.
 - **Fix**: Added target `groupandid` verification in packet hunter loop to avoid state mapping mismatch between different air conditioning units.

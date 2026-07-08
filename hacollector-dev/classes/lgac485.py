@@ -487,6 +487,8 @@ class LGACPacketHandler:
                 if self.is_checksum_ok(possible_packet):
                     # Valid Packet Found!
                     packet_id = possible_packet[4]
+                    target_str = f"0x{target_groupandid:02x}" if target_groupandid is not None else "None"
+                    self.log.debug(f"[Packet Hunter] Found valid packet. ID: 0x{packet_id:02x} (Target: {target_str})")
                     
                     if target_groupandid is not None and packet_id != target_groupandid:
                         # 체크섬은 맞지만 대기 중인 타겟 ID와 다를 때: 가로채서 즉시 상태 업데이트 진행!
@@ -505,13 +507,18 @@ class LGACPacketHandler:
                                 other_packet.current_temp,
                                 other_packet.set_temp
                             )
+                            self.log.info(f"[Packet Hunter] ID Mismatch. Intercepting for room '{other_room}' (ID: 0x{packet_id:02x}) -> Power: {other_info.action}, Temp: {other_info.cur_temp}")
                             self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
+                        else:
+                            self.log.debug(f"[Packet Hunter] Intercepted unregistered ID 0x{packet_id:02x}")
                         
                         # 버퍼에서 이 패킷만 소모시키고 계속 헌팅 수행
                         del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
                         continue
                     
                     # Target ID와 일치하거나 필터링 조건이 없을 때 정상 반환
+                    if target_groupandid is not None:
+                        self.log.debug(f"[Packet Hunter] ID Matches target 0x{target_groupandid:02x}. Returning packet.")
                     del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
                     return bytes(possible_packet)
                 else:
@@ -547,8 +554,8 @@ class LGACPacketHandler:
         try:
             await self.comm.connect_async_socket()
             
-            # [Safe Flush] 송신 바로 직전에 기존 버퍼의 잔여 유효 패킷 파싱 및 비우기 수행!
-            await self.async_safe_flush_buffers()
+            # [Safe Flush 비활성화] 송신 전 소켓 버퍼 비우기가 유효 응답 패킷을 먼저 소모시켜 타임아웃을 유발하는 부작용을 방지하기 위해 제거합니다.
+            # await self.async_safe_flush_buffers()
             
             ok: bool = await self.comm.async_write_one_chunk(send_packet)
             if ok:
@@ -576,6 +583,7 @@ class LGACPacketHandler:
                     if airconset.action != PAYLOAD_STATUS:
                         self.log.info(f"[RS485 Success] 에어컨 #{id} (Group {group_no}) responded OK. State synced.")
                 else:
+                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within 1.5s")
                     if count_error:
                         if airconset.action != PAYLOAD_STATUS:
                             self.log.warning(f"[RS485 Fail] 에어컨 #{id} (Group {group_no}) write failed (Timeout/No Response).")
