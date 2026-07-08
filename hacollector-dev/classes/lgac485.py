@@ -263,6 +263,97 @@ class LGACPacketHandler:
     def set_availability_function(self, publish_availability):
         self.notify_availability: Callable[[str, str], None] = publish_availability
 
+    def _update_device_state(self, device_obj: Aircon, id: int, info: Aircon.Info, is_intercepted: bool = False):
+        if self.notify_availability:
+            status = PAYLOAD_ONLINE
+            if device_obj.last_availability_status != status:
+                self.notify_availability(device_obj.room_name, status)
+                device_obj.last_availability_status = status
+
+        # Check for state changes (e.g. Remote Controller actions)
+        changed = []
+        if device_obj.action != info.action:
+            changed.append(f"Power: {device_obj.action or 'off'} -> {info.action}")
+        if device_obj.opmode != info.opmode:
+            changed.append(f"Mode: {device_obj.opmode or 'none'} -> {info.opmode}")
+        if device_obj.target_temp != info.target_temp:
+            changed.append(f"TargetTemp: {device_obj.target_temp}C -> {info.target_temp}C")
+        if abs(device_obj.current_temp - info.cur_temp) >= 0.5:
+            changed.append(f"RoomTemp: {device_obj.current_temp}C -> {info.cur_temp}C")
+
+        if changed and device_obj.action != '':
+            tag = "[Status Changed (Intercepted)]" if is_intercepted else "[Status Changed]"
+            self.log.info(f"{tag} '{device_obj.room_name}' (ID: 0x{id:02x}) updated: " + " | ".join(changed))
+
+        # Update local device object state to prevent redundant logging
+        device_obj.action = info.action
+        device_obj.opmode = info.opmode
+        device_obj.target_temp = info.target_temp
+        device_obj.current_temp = info.cur_temp
+
+        if self.notify_to_homeassistant:
+            self.notify_to_homeassistant(device_obj.name, device_obj.room_name, info)
+
+    async def async_safe_flush_buffers(self):
+        """
+        소켓 커널 버퍼와 수신 버퍼에 잔존하는 데이터를 읽어내고,
+        그중 유효한 패킷들은 가로채 파싱하여 즉시 각 에어컨의 상태를 업데이트합니다.
+        그 후 버퍼를 비워 찌꺼기 패킷 혼선을 막습니다.
+        """
+        # 1. 소켓 커널 버퍼의 모든 데이터를 빠르게 읽어와 _recv_buffer에 누적
+        if self.comm.reader:
+            while True:
+                try:
+                    data = await asyncio.wait_for(self.comm.reader.read(2048), timeout=0.01)
+                    if not data:
+                        break
+                    self._recv_buffer.extend(data)
+                except asyncio.TimeoutError:
+                    break
+                except Exception:
+                    break
+
+        # 2. 수집된 버퍼에서 유효 패킷(체크섬 통과)을 모두 추출하여 실시간 동기화 진행
+        while len(self._recv_buffer) > 0:
+            try:
+                header_idx = self._recv_buffer.index(0x10)
+            except ValueError:
+                self._recv_buffer.clear()
+                break
+
+            if header_idx > 0:
+                del self._recv_buffer[:header_idx]
+            
+            if len(self._recv_buffer) < LGACPacket._RESPONSE_PACKET_SIZE:
+                break
+            
+            possible_packet = self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
+            if self.is_checksum_ok(possible_packet):
+                packet_id = possible_packet[4]
+                
+                # 타겟 외 패킷 가로채기 파싱 진행
+                other_packet = LGACPacket(possible_packet)
+                other_room = self.rooms.get(f"{packet_id:02x}")
+                if not other_room:
+                    other_room = self.rooms.get(f"{packet_id:d}")
+                
+                if other_room:
+                    other_device = self.get_aircon(other_room)
+                    other_info = Aircon.Info(
+                        other_packet.str_action,
+                        other_packet.str_opmode,
+                        other_packet.str_fanmove,
+                        other_packet.str_fanmode,
+                        other_packet.current_temp,
+                        other_packet.set_temp
+                    )
+                    self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
+                
+                # 추출된 유효 패킷 버퍼에서 삭제
+                del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
+            else:
+                del self._recv_buffer[0:1]
+
     def prepare_enabled(self):
         for r_id, r_name in self.rooms.items():
             aircon = Aircon(r_name)
@@ -350,10 +441,11 @@ class LGACPacketHandler:
         except Exception as e:
             self.log.error(f"[From HA]Error [{e}] {topic} = {payload}")
 
-    async def async_read_packet(self, timeout: float = 2.0) -> bytes | None:
+    async def async_read_packet(self, target_groupandid: int | None = None, timeout: float = 2.0) -> bytes | None:
         """
         Reads from the stream and hunts for a valid packet properly.
         Handles fragmentation (split packets) and coalescing (merged packets).
+        If target_groupandid is specified, other valid packets will be intercepted and parsed.
         """
         start_time = time.monotonic()
         
@@ -394,7 +486,32 @@ class LGACPacketHandler:
                 possible_packet = self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
                 if self.is_checksum_ok(possible_packet):
                     # Valid Packet Found!
-                    # Consume the packet from buffer
+                    packet_id = possible_packet[4]
+                    
+                    if target_groupandid is not None and packet_id != target_groupandid:
+                        # 체크섬은 맞지만 대기 중인 타겟 ID와 다를 때: 가로채서 즉시 상태 업데이트 진행!
+                        other_packet = LGACPacket(possible_packet)
+                        other_room = self.rooms.get(f"{packet_id:02x}")
+                        if not other_room:
+                            other_room = self.rooms.get(f"{packet_id:d}")
+                            
+                        if other_room:
+                            other_device = self.get_aircon(other_room)
+                            other_info = Aircon.Info(
+                                other_packet.str_action,
+                                other_packet.str_opmode,
+                                other_packet.str_fanmove,
+                                other_packet.str_fanmode,
+                                other_packet.current_temp,
+                                other_packet.set_temp
+                            )
+                            self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
+                        
+                        # 버퍼에서 이 패킷만 소모시키고 계속 헌팅 수행
+                        del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
+                        continue
+                    
+                    # Target ID와 일치하거나 필터링 조건이 없을 때 정상 반환
                     del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
                     return bytes(possible_packet)
                 else:
@@ -429,12 +546,17 @@ class LGACPacketHandler:
         # need some wait
         try:
             await self.comm.connect_async_socket()
+            
+            # [Safe Flush] 송신 바로 직전에 기존 버퍼의 잔여 유효 패킷 파싱 및 비우기 수행!
+            await self.async_safe_flush_buffers()
+            
             ok: bool = await self.comm.async_write_one_chunk(send_packet)
             if ok:
                 await asyncio.sleep(cfg.RS485_WRITE_INTERVAL_SEC)
                 
-                # Use new Packet Hunting method
-                read_packet = await self.async_read_packet(timeout=1.5)
+                # 쿼리한 타겟 에어컨 ID 정보
+                target_groupandid = (group_no << 4) + id
+                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=1.5)
                 
                 if read_packet:
                     self.log.debug(f"Read From LGAC ==> {read_packet.hex()}")
@@ -570,12 +692,8 @@ class LGACPacketHandler:
                      # [FIX] Immediately publish found device state and availability (Full Scan)
                      for device in self.aircon:
                         if device.id == id:
-                            if self.notify_to_homeassistant:
-                                 self.notify_to_homeassistant(device.name, device.room_name, info)
-                            if self.notify_availability:
-                                 self.notify_availability(device.room_name, PAYLOAD_ONLINE)
-                                 device.last_availability_status = PAYLOAD_ONLINE
-                            break
+                             self._update_device_state(device, id, info, is_intercepted=False)
+                             break
 
                  await asyncio.sleep(1.0)
         else:
@@ -604,27 +722,7 @@ class LGACPacketHandler:
                  device_obj.last_availability_status = status
 
         if aircon_info:
-            # Check for state changes (e.g. Remote Controller actions)
-            changed = []
-            if device_obj.action != aircon_info.action:
-                changed.append(f"Power: {device_obj.action or 'off'} -> {aircon_info.action}")
-            if device_obj.opmode != aircon_info.opmode:
-                changed.append(f"Mode: {device_obj.opmode or 'none'} -> {aircon_info.opmode}")
-            if device_obj.target_temp != aircon_info.target_temp:
-                changed.append(f"TargetTemp: {device_obj.target_temp}C -> {aircon_info.target_temp}C")
-            if abs(device_obj.current_temp - aircon_info.cur_temp) >= 0.5:
-                changed.append(f"RoomTemp: {device_obj.current_temp}C -> {aircon_info.cur_temp}C")
-
-            if changed and device_obj.action != '':
-                self.log.info(f"[Status Changed] '{device_obj.room_name}' (ID: 0x{no:02x}) updated: " + " | ".join(changed))
-
-            # Update local device object state to prevent redundant logging
-            device_obj.action = aircon_info.action
-            device_obj.opmode = aircon_info.opmode
-            device_obj.target_temp = aircon_info.target_temp
-            device_obj.current_temp = aircon_info.cur_temp
-
-            self.notify_to_homeassistant(device_obj.name, device_obj.room_name, aircon_info)
+            self._update_device_state(device_obj, no, aircon_info, is_intercepted=False)
 
     async def async_scan_aircons(self, now: float):
         for aircon in self.aircon:

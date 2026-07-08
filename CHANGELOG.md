@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2-dev (Development Addon)
+- **Fix**: Implemented `Safe Flush` mechanism to drain and parse pending socket bytes immediately before writing a new command, preventing Remote Controller event loss.
+- **Fix**: Added target `groupandid` verification in packet hunter loop to avoid state mapping mismatch between different air conditioning units.
+
 ## 1.1.1
 - **Feature**: Integrated Ingress Web Console (Dashboard) for real-time monitoring and control.
 - **Feature**: Added `InMemoryLogHandler` to stream the latest 200 logs on the web console without disk wear.
