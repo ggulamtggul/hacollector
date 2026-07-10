@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.4-dev (Development Addon)
+- **Feature**: Implemented availability debounce threshold (3 consecutive timeouts) to prevent Home Assistant UI "Unavailable" flicker on transient drops.
+- **Feature**: Formally enabled native Auto mode support by removing redundant Cool mode fallback logic.
+
 ## 1.1.3
 - **Fix**: Implemented target `groupandid` verification in packet hunter loop to completely prevent state mapping mismatch (e.g. bedroom unit turning ON when livingroom is remote-controlled) on shared RS485 bus.
 - **Fix**: Added packet interception (state parsing for non-target aircon packets during query wait) to preserve remote controller events in real-time.

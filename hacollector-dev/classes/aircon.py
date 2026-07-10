@@ -34,6 +34,7 @@ class Aircon:
         self.current_temp: float = 27.0
         self.target_temp: int   = 27
         self.last_availability_status: str = ''
+        self.availability_fail_count: int = 0
 
     def set_initial_state(self) -> None:
         self.scan.reset()

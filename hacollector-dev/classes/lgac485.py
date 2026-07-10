@@ -721,13 +721,20 @@ class LGACPacketHandler:
         aircon_info: Aircon.Info | None  = await self.async_get_current_status(no)
         
         if self.notify_availability:
-             status = PAYLOAD_ONLINE if aircon_info else PAYLOAD_OFFLINE
-             # Only publish if status changed or periodically?
-             # For now, simplistic approach: publish every scan is safe (MQTT deduplicates usually, or we trust Paho)
-             # Better: Track last status in Aircon object to reduce traffic.
+             if aircon_info:
+                 device_obj.availability_fail_count = 0
+                 status = PAYLOAD_ONLINE
+             else:
+                 device_obj.availability_fail_count += 1
+                 # 3회 연속 실패하기 전까지는 기존 온라인 상태를 유지하여 간헐적 드랍 시 깜빡임 차단
+                 if device_obj.availability_fail_count >= 3:
+                     status = PAYLOAD_OFFLINE
+                 else:
+                     status = device_obj.last_availability_status or PAYLOAD_ONLINE
+
              if device_obj.last_availability_status != status:
-                 self.notify_availability(device_obj.room_name, status)
-                 device_obj.last_availability_status = status
+                  self.notify_availability(device_obj.room_name, status)
+                  device_obj.last_availability_status = status
 
         if aircon_info:
             self._update_device_state(device_obj, no, aircon_info, is_intercepted=False)
