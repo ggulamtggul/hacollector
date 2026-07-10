@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.6-dev (Development Addon)
+- **Feature**: Added automatic discovery and publishing for a binary sensor entity (Plasma Purification) indicating if air purification is active based on the LGAP status packet (Byte 4 bit 4).
+
 ## 1.1.5
 - **Feature**: Implemented availability debounce threshold (3 consecutive timeouts) to prevent Home Assistant UI "Unavailable" flicker on transient drops.
 - **Feature**: Formally enabled native Auto mode support by removing redundant Cool mode fallback logic.

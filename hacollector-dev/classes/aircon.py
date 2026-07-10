@@ -23,6 +23,7 @@ class Aircon:
         pipe1_temp: float = 0.0
         pipe2_temp: float = 0.0
         outdoor_temp: float = 0.0
+        plasma: str = 'off'
 
     def __init__(self, room_name: str = '') -> None:
         self.scan = Aircon.ScanInfo()
@@ -41,6 +42,7 @@ class Aircon:
         self.pipe1_temp: float = 0.0
         self.pipe2_temp: float = 0.0
         self.outdoor_temp: float = 0.0
+        self.plasma: str        = 'off'
 
     def set_initial_state(self) -> None:
         self.scan.reset()
