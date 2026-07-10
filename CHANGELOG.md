@@ -1,12 +1,9 @@
 # Changelog
 
-## 1.1.3-dev (Development Addon)
-- **Fix**: Disabled `Safe Flush` before write commands as it proactively consumed response packets, causing scan timeouts.
-- **Log**: Enhanced `Packet Hunter` debugging logs to trace packet ID matching, interceptions, and timeouts.
-
-## 1.1.2-dev (Development Addon)
-- **Fix**: Implemented `Safe Flush` mechanism to drain and parse pending socket bytes immediately before writing a new command, preventing Remote Controller event loss.
-- **Fix**: Added target `groupandid` verification in packet hunter loop to avoid state mapping mismatch between different air conditioning units.
+## 1.1.3
+- **Fix**: Implemented target `groupandid` verification in packet hunter loop to completely prevent state mapping mismatch (e.g. bedroom unit turning ON when livingroom is remote-controlled) on shared RS485 bus.
+- **Fix**: Added packet interception (state parsing for non-target aircon packets during query wait) to preserve remote controller events in real-time.
+- **Log**: Enhanced serial Packet Hunter debugging logs to trace packet ID matching, interceptions, and timeouts.
 
 ## 1.1.1
 - **Feature**: Integrated Ingress Web Console (Dashboard) for real-time monitoring and control.
