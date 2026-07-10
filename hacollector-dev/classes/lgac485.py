@@ -71,6 +71,7 @@ class LGACPacket:
         self.pipe1_temp          = 0
         self.pipe2_temp          = 0
         self.fill_outer_sensor   = 0
+        self.outdoor_temp        = 0.0
         self.fill_unknown4       = 0
         self.fill_model          = 0
         self.fill_fixedvalue     = 0
@@ -118,6 +119,7 @@ class LGACPacket:
 
             self.pipe1_temp = self.calc_temp(self.pipe1_temp)
             self.pipe2_temp = self.calc_temp(self.pipe2_temp)
+            self.outdoor_temp = self.calc_temp(self.fill_outer_sensor)
             self.get_detail_mode()
             logger.debug(f"LGAC Packet Body = [ {rawdata.hex()} ]")
             return True
@@ -199,7 +201,8 @@ class LGACPacket:
             f"GroupandID:{self.groupandid}, action:{self.str_action}, "
             f"operation:{self.str_opmode}, fanmove:{self.str_fanmove}, "
             f"fanmode:{self.str_fanmode}, temp:{self.set_temp}, "
-            f"currenttemp:{self.current_temp}, actemp1:{self.pipe1_temp}, actemp2:{self.pipe2_temp}"
+            f"currenttemp:{self.current_temp}, actemp1:{self.pipe1_temp}, actemp2:{self.pipe2_temp}, "
+            f"outtemp:{self.outdoor_temp}"
         )
 
     def make_send_packet(self) -> bytes:
@@ -290,6 +293,9 @@ class LGACPacketHandler:
         device_obj.opmode = info.opmode
         device_obj.target_temp = info.target_temp
         device_obj.current_temp = info.cur_temp
+        device_obj.pipe1_temp = info.pipe1_temp
+        device_obj.pipe2_temp = info.pipe2_temp
+        device_obj.outdoor_temp = info.outdoor_temp
 
         if self.notify_to_homeassistant:
             self.notify_to_homeassistant(device_obj.name, device_obj.room_name, info)
@@ -505,7 +511,10 @@ class LGACPacketHandler:
                                 other_packet.str_fanmove,
                                 other_packet.str_fanmode,
                                 other_packet.current_temp,
-                                other_packet.set_temp
+                                other_packet.set_temp,
+                                other_packet.pipe1_temp,
+                                other_packet.pipe2_temp,
+                                other_packet.outdoor_temp
                             )
                             self.log.info(f"[Packet Hunter] ID Mismatch. Intercepting for room '{other_room}' (ID: 0x{packet_id:02x}) -> Power: {other_info.action}, Temp: {other_info.cur_temp}")
                             self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
@@ -577,7 +586,10 @@ class LGACPacketHandler:
                         new_packet.str_fanmove,
                         new_packet.str_fanmode,
                         new_packet.current_temp,
-                        new_packet.set_temp
+                        new_packet.set_temp,
+                        new_packet.pipe1_temp,
+                        new_packet.pipe2_temp,
+                        new_packet.outdoor_temp
                     )
                     self.read_error_count = 0
                     if airconset.action != PAYLOAD_STATUS:

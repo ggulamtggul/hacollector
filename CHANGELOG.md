@@ -3,6 +3,7 @@
 ## 1.1.4-dev (Development Addon)
 - **Feature**: Implemented availability debounce threshold (3 consecutive timeouts) to prevent Home Assistant UI "Unavailable" flicker on transient drops.
 - **Feature**: Formally enabled native Auto mode support by removing redundant Cool mode fallback logic.
+- **Feature**: Added automatic discovery and publishing for 3 additional sensors (Pipe 1 Temperature, Pipe 2 Temperature, and Outdoor Temperature) parsed from the LG AC status packet.
 
 ## 1.1.3
 - **Fix**: Implemented target `groupandid` verification in packet hunter loop to completely prevent state mapping mismatch (e.g. bedroom unit turning ON when livingroom is remote-controlled) on shared RS485 bus.

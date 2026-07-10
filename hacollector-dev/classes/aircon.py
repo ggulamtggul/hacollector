@@ -20,6 +20,9 @@ class Aircon:
         fanmode: str
         cur_temp: float
         target_temp: int
+        pipe1_temp: float = 0.0
+        pipe2_temp: float = 0.0
+        outdoor_temp: float = 0.0
 
     def __init__(self, room_name: str = '') -> None:
         self.scan = Aircon.ScanInfo()
@@ -35,6 +38,9 @@ class Aircon:
         self.target_temp: int   = 27
         self.last_availability_status: str = ''
         self.availability_fail_count: int = 0
+        self.pipe1_temp: float = 0.0
+        self.pipe2_temp: float = 0.0
+        self.outdoor_temp: float = 0.0
 
     def set_initial_state(self) -> None:
         self.scan.reset()

@@ -150,6 +150,20 @@ class Discovery:
         }
         results.append((sensor_topic, sensor_payload))
         
+        # Additional Sensors (Pipe 1, Pipe 2, Outdoor Temperatures)
+        additional_sensors = [
+            ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp'),
+            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp'),
+            ('outdoor_temp', 'Outdoor Temperature', 'outdoor_temp')
+        ]
+        for suffix, name, json_key in additional_sensors:
+            topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{suffix}/config'
+            payload = sensor_payload.copy()
+            payload['name'] = name
+            payload['uniq_id'] = f'{stable_id}_{suffix}'
+            payload['value_template'] = f'{{{{ value_json.{json_key} }}}}'
+            results.append((topic, payload))
+
         return results
 
     def discovery_aircon(self, remove: bool, enabled_device: list | None = None) -> None:
@@ -337,7 +351,10 @@ class MqttHandler:
             f'{MQTT_SWING_MODE}': f'{swing}',
             f'{MQTT_FAN_MODE}': f'{aircon_info.fanmode}',
             f'{MQTT_CURRENT_TEMP}': f'{aircon_info.cur_temp:.2f}',
-            f'{MQTT_TARGET_TEMP}': f'{aircon_info.target_temp}'
+            f'{MQTT_TARGET_TEMP}': f'{aircon_info.target_temp}',
+            'pipe1_temp': f'{aircon_info.pipe1_temp:.2f}',
+            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}',
+            'outdoor_temp': f'{aircon_info.outdoor_temp:.2f}'
         }
         self.send_state_to_homeassistant(dev_str, room_str, value)
 
