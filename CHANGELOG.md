@@ -1,7 +1,8 @@
 # Changelog
 
-## 1.1.6-dev (Development Addon)
+## 1.1.7-dev (Development Addon)
 - **Feature**: Added automatic discovery and publishing for a binary sensor entity (Plasma Purification) indicating if air purification is active based on the LGAP status packet (Byte 4 bit 4).
+- **Debug**: Added RAW TX/RX packet hex logging at INFO level and file logging to /config/hacollector_plasma.log to troubleshoot plasma status updates.
 
 ## 1.1.5
 - **Feature**: Implemented availability debounce threshold (3 consecutive timeouts) to prevent Home Assistant UI "Unavailable" flicker on transient drops.

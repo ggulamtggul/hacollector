@@ -502,12 +502,16 @@ class LGACPacketHandler:
                 if self.is_checksum_ok(possible_packet):
                     # Valid Packet Found!
                     packet_id = possible_packet[4]
-                    target_str = f"0x{target_groupandid:02x}" if target_groupandid is not None else "None"
-                    self.log.debug(f"[Packet Hunter] Found valid packet. ID: 0x{packet_id:02x} (Target: {target_str})")
+                    parsed_packet = LGACPacket(possible_packet)
+                    self.log.info(
+                        f"[RAW RX] ID: 0x{packet_id:02x} | Raw: {possible_packet.hex()} | "
+                        f"Act: 0x{parsed_packet.action:02x} ({parsed_packet.str_action}) | "
+                        f"Mode: 0x{parsed_packet.current_mode:02x} ({parsed_packet.str_opmode}) | "
+                        f"Plasma: {parsed_packet.str_plasma} | Temp: {parsed_packet.current_temp}C"
+                    )
                     
                     if target_groupandid is not None and packet_id != target_groupandid:
                         # 체크섬은 맞지만 대기 중인 타겟 ID와 다를 때: 가로채서 즉시 상태 업데이트 진행!
-                        other_packet = LGACPacket(possible_packet)
                         other_room = self.rooms.get(f"{packet_id:02x}")
                         if not other_room:
                             other_room = self.rooms.get(f"{packet_id:d}")
@@ -515,16 +519,16 @@ class LGACPacketHandler:
                         if other_room:
                             other_device = self.get_aircon(other_room)
                             other_info = Aircon.Info(
-                                other_packet.str_action,
-                                other_packet.str_opmode,
-                                other_packet.str_fanmove,
-                                other_packet.str_fanmode,
-                                other_packet.current_temp,
-                                other_packet.set_temp,
-                                other_packet.pipe1_temp,
-                                other_packet.pipe2_temp,
-                                other_packet.outdoor_temp,
-                                other_packet.str_plasma
+                                parsed_packet.str_action,
+                                parsed_packet.str_opmode,
+                                parsed_packet.str_fanmove,
+                                parsed_packet.str_fanmode,
+                                parsed_packet.current_temp,
+                                parsed_packet.set_temp,
+                                parsed_packet.pipe1_temp,
+                                parsed_packet.pipe2_temp,
+                                parsed_packet.outdoor_temp,
+                                parsed_packet.str_plasma
                             )
                             self.log.info(f"[Packet Hunter] ID Mismatch. Intercepting for room '{other_room}' (ID: 0x{packet_id:02x}) -> Power: {other_info.action}, Temp: {other_info.cur_temp}")
                             self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
@@ -578,6 +582,7 @@ class LGACPacketHandler:
             
             ok: bool = await self.comm.async_write_one_chunk(send_packet)
             if ok:
+                self.log.info(f"[RAW TX] ID: 0x{id:02x} | Raw: {send_packet.hex()}")
                 await asyncio.sleep(cfg.RS485_WRITE_INTERVAL_SEC)
                 
                 # 쿼리한 타겟 에어컨 ID 정보
