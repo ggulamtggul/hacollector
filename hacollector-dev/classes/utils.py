@@ -60,18 +60,4 @@ def setup_logging(level_name: str = 'INFO'):
     ch.setFormatter(CustomFormatter())
     logger.addHandler(ch)
 
-    # Optional: Save logs to Home Assistant config folder if writable
-    import os
-    if os.path.exists('/config') and os.access('/config', os.W_OK):
-        try:
-            log_file = '/config/hacollector_plasma.log'
-            fh = logging.FileHandler(log_file, encoding='utf-8')
-            fh.setLevel(target_level)
-            # Use a clean text formatter without ANSI escape codes for file logs
-            clean_formatter = logging.Formatter("%(asctime)s %(levelname)8s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
-            fh.setFormatter(clean_formatter)
-            logger.addHandler(fh)
-        except Exception:
-            pass
-
 

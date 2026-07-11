@@ -164,33 +164,6 @@ class Discovery:
             payload['value_template'] = f'{{{{ value_json.{json_key} }}}}'
             results.append((topic, payload))
 
-        # 4. Plasma Ionizer Binary Sensor (Binary Sensor Entity)
-        plasma_topic = f'{cfg.HA_PREFIX}/binary_sensor/{room_safe}_plasma/config'
-        plasma_payload = {
-            'name': 'Plasma Purification',
-            'uniq_id': f'{stable_id}_plasma',
-            'device': device_info,
-            'state_topic': f'{aircon_common_topic_str}/{MQTT_STATE}',
-            'value_template': '{{ value_json.plasma }}',
-            'payload_on': PAYLOAD_ON,
-            'payload_off': PAYLOAD_OFF,
-            'device_class': 'running',
-            'availability_mode': 'all',
-            'availability': [
-                {
-                    'topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability',
-                    'payload_available': PAYLOAD_ONLINE,
-                    'payload_not_available': PAYLOAD_OFFLINE
-                },
-                {
-                    'topic': availability_topic,
-                    'payload_available': PAYLOAD_ONLINE,
-                    'payload_not_available': PAYLOAD_OFFLINE
-                }
-            ]
-        }
-        results.append((plasma_topic, plasma_payload))
-
         return results
 
     def discovery_aircon(self, remove: bool, enabled_device: list | None = None) -> None:
@@ -381,8 +354,7 @@ class MqttHandler:
             f'{MQTT_TARGET_TEMP}': f'{aircon_info.target_temp}',
             'pipe1_temp': f'{aircon_info.pipe1_temp:.2f}',
             'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}',
-            'outdoor_temp': f'{aircon_info.outdoor_temp:.2f}',
-            'plasma': f'{aircon_info.plasma}'
+            'outdoor_temp': f'{aircon_info.outdoor_temp:.2f}'
         }
         self.send_state_to_homeassistant(dev_str, room_str, value)
 
