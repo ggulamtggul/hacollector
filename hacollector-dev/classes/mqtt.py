@@ -150,11 +150,10 @@ class Discovery:
         }
         results.append((sensor_topic, sensor_payload))
         
-        # Additional Sensors (Pipe 1, Pipe 2, Outdoor Temperatures)
+        # Additional Sensors (Pipe 1, Pipe 2 Temperatures)
         additional_sensors = [
             ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp'),
-            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp'),
-            ('outdoor_temp', 'Outdoor Temperature', 'outdoor_temp')
+            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp')
         ]
         for suffix, name, json_key in additional_sensors:
             topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{suffix}/config'
@@ -353,8 +352,7 @@ class MqttHandler:
             f'{MQTT_CURRENT_TEMP}': f'{aircon_info.cur_temp:.2f}',
             f'{MQTT_TARGET_TEMP}': f'{aircon_info.target_temp}',
             'pipe1_temp': f'{aircon_info.pipe1_temp:.2f}',
-            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}',
-            'outdoor_temp': f'{aircon_info.outdoor_temp:.2f}'
+            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}'
         }
         self.send_state_to_homeassistant(dev_str, room_str, value)
 

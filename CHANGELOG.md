@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.9-dev (Development Addon)
+- **Cleanup**: Removed Outdoor Temperature sensor from Home Assistant auto-discovery and state payload, since it represents multiplexed compressor frequency/status data rather than real ambient temperature.
+
 ## 1.1.8-dev (Development Addon)
 - **Cleanup**: Reverted plasma purification binary sensor entity, RAW TX/RX packet hex logging, and file logging since ODU interface doesn't expose the plasma state.
 
