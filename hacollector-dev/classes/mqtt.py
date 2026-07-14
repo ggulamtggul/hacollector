@@ -186,11 +186,6 @@ class Discovery:
                             self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
                             self.sub.append((ha_payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'], 0))
                         
-                        # 강제로 기존 실외기 온도 센서 Discovery 해제 토픽 발행 (Retain 데이터 초기화)
-                        room_safe = room_name.replace(' ', '_')
-                        outdoor_temp_topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_outdoor_temp/config'
-                        self.pub.append({outdoor_temp_topic: ''})
-
                         if remove:
                             self.pub.append({ha_topic: ''})
                         else:
