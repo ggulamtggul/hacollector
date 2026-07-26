@@ -400,8 +400,13 @@ class LGACPacketHandler:
         try:
             aircon = self.get_aircon(room_str)
             assert isinstance(aircon, Aircon)
-            action_str = aircon.action # Default to current action
-            opmode_str = aircon.opmode # Default to current opmode
+
+            # [보정] 기존 에어컨의 최근 실제 상태값을 그대로 보존하고 요청된 항목만 갱신
+            action_str = aircon.action if aircon.action else PAYLOAD_OFF
+            opmode_str = aircon.opmode if aircon.opmode else PAYLOAD_COOL
+            fanmove_str = aircon.fanmove if aircon.fanmove else PAYLOAD_FIXED
+            fanmode_str = aircon.fanmode if aircon.fanmode else PAYLOAD_LOW
+            target_temp = aircon.target_temp if aircon.target_temp else 24
 
             if cmd_str == MQTT_MODE:
                 if payload == PAYLOAD_OFF:
@@ -411,32 +416,35 @@ class LGACPacketHandler:
                     opmode_str = payload
             elif cmd_str == MQTT_SWING_MODE:
                 if payload == PAYLOAD_ON:
-                    aircon.fanmove = PAYLOAD_SWING
+                    fanmove_str = PAYLOAD_SWING
                 else:
-                    aircon.fanmove = PAYLOAD_FIXED
+                    fanmove_str = PAYLOAD_FIXED
             elif cmd_str == MQTT_FAN_MODE:
                 if payload in [PAYLOAD_LOW, PAYLOAD_MEDIUM, PAYLOAD_HIGH, PAYLOAD_SILENT, PAYLOAD_AUTO, PAYLOAD_POWER]:
-                    aircon.fanmode = payload
+                    fanmode_str = payload
                 else:
-                    aircon.fanmode = PAYLOAD_OFF
+                    fanmode_str = PAYLOAD_LOW
             elif cmd_str == MQTT_TARGET_TEMP:
-                aircon.target_temp = int(float(payload))
+                target_temp = int(float(payload))
 
-            # Update aircon object with new action and opmode for consistency
+            # 객체 상태 동기화
             aircon.action = action_str
             aircon.opmode = opmode_str
+            aircon.fanmove = fanmove_str
+            aircon.fanmode = fanmode_str
+            aircon.target_temp = target_temp
 
             self.log.debug(
                 f"act={aircon.action}, opmode={aircon.opmode}, fanmove={aircon.fanmove}, fanspeed={aircon.fanmode}, "
-                f"taregt_temp={aircon.target_temp}"
+                f"target_temp={aircon.target_temp}"
             )
             
             aircon_no = int(self.get_room_aircon_number(room_str))
-            aircon_cmd = Aircon.Info(action_str, opmode_str, aircon.fanmove, aircon.fanmode, 0.0, aircon.target_temp)
+            aircon_cmd = Aircon.Info(action_str, opmode_str, fanmove_str, fanmode_str, 0.0, target_temp)
 
             self.log.info(
                 f"[MQTT Command] Received control request for '{room_str}' (ID: 0x{aircon_no:02x}) -> "
-                f"Action: {action_str}, Mode: {opmode_str}, Temp: {aircon.target_temp}C, Fan: {aircon.fanmode}"
+                f"Action: {action_str}, Mode: {opmode_str}, Temp: {target_temp}C, Fan: {fanmode_str}, Swing: {fanmove_str}"
             )
 
             self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
