@@ -150,18 +150,53 @@ class Discovery:
         }
         results.append((sensor_topic, sensor_payload))
         
-        # Additional Sensors (Pipe 1, Pipe 2 Temperatures)
+        # Additional Sensors (Pipe 1, Pipe 2, Error Code, Load Estimate)
         additional_sensors = [
-            ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp'),
-            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp')
+            ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp', 'temperature', '°C'),
+            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp', 'temperature', '°C'),
+            ('error_code', 'Error Code', 'error_code', None, None),
+            ('load_estimate', 'Load Estimate', 'load_estimate', None, '%')
         ]
-        for suffix, name, json_key in additional_sensors:
+        for item in additional_sensors:
+            suffix, name, json_key = item[0], item[1], item[2]
+            dev_class, unit = item[3], item[4]
             topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{suffix}/config'
             payload = sensor_payload.copy()
             payload['name'] = name
             payload['uniq_id'] = f'{stable_id}_{suffix}'
             payload['value_template'] = f'{{{{ value_json.{json_key} }}}}'
+            if dev_class:
+                payload['device_class'] = dev_class
+            if unit:
+                payload['unit_of_measurement'] = unit
             results.append((topic, payload))
+
+        # Plasma Switch
+        plasma_topic = f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config'
+        plasma_payload = {
+            'name': 'Plasma Air Purifier',
+            'uniq_id': f'{stable_id}_plasma',
+            'state_topic': state_topic,
+            'command_topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/{room_safe}/plasma',
+            'value_template': '{{ value_json.plasma }}',
+            'payload_on': PAYLOAD_ON,
+            'payload_off': PAYLOAD_OFF,
+            'icon': 'mdi:air-purifier',
+            'device': device_info,
+            'availability': [
+                {
+                    'topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability',
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                },
+                {
+                    'topic': availability_topic,
+                    'payload_available': PAYLOAD_ONLINE,
+                    'payload_not_available': PAYLOAD_OFFLINE
+                }
+            ]
+        }
+        results.append((plasma_topic, plasma_payload))
 
         return results
 
@@ -185,6 +220,8 @@ class Discovery:
                             self.sub.append((ha_payload[f'{MQTT_TEMP}_{MQTT_CMD_T}'], 0))
                             self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
                             self.sub.append((ha_payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'], 0))
+                        elif 'switch' in ha_topic:
+                            self.sub.append((ha_payload['command_topic'], 0))
                         
                         if remove:
                             self.pub.append({ha_topic: ''})
