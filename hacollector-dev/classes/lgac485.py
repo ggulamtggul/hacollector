@@ -134,10 +134,8 @@ class LGACPacket:
             return False
 
     def get_lgac_action_data(self, id: str) -> int:
-        for k, v in LGAC_ACTION.items():
-            if v == id:
-                return k
-        return 0x00
+        ret_int = self.LGAC_ACTION_REV.get(id)
+        return ret_int if ret_int is not None else 0
 
     def parse_lgac_action(self, inbyte: int) -> str:
         ret_enum = self.LGAC_ACTION.get(inbyte)
