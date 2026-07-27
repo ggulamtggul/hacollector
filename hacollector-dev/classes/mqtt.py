@@ -150,12 +150,10 @@ class Discovery:
         }
         results.append((sensor_topic, sensor_payload))
         
-        # Additional Sensors (Pipe 1, Pipe 2, Error Code, Load Estimate)
+        # Additional Sensors (Pipe 1, Pipe 2 Temperatures)
         additional_sensors = [
             ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp', 'temperature', '°C'),
-            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp', 'temperature', '°C'),
-            ('error_code', 'Error Code', 'error_code', None, None),
-            ('load_estimate', 'Load Estimate', 'load_estimate', None, '%')
+            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp', 'temperature', '°C')
         ]
         for item in additional_sensors:
             suffix, name, json_key = item[0], item[1], item[2]
@@ -170,6 +168,12 @@ class Discovery:
             if unit:
                 payload['unit_of_measurement'] = unit
             results.append((topic, payload))
+
+        # Cleanup obsolete entities in Home Assistant (Outdoor Temp, Error Code, Load Estimate)
+        obsolete_suffixes = ['outdoor_temp', 'error_code', 'load_estimate']
+        for obs in obsolete_suffixes:
+            obs_topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{obs}/config'
+            results.append((obs_topic, {}))
 
         # Plasma Switch
         plasma_topic = f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config'
