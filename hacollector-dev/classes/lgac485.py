@@ -406,11 +406,15 @@ class LGACPacketHandler:
             return False
 
     def handle_aircon_mqtt_message(self, topic: list[str], payload: str):
-        self.log.debug(f"LGAircon Action From MQTT.{topic}, = {payload}")
-        device_str = DEVICE_AIRCON
-        room_str = topic[2]
-        cmd_str = topic[3]
         try:
+            self.log.debug(f"LGAircon Action From MQTT.{topic}, = {payload}")
+            if len(topic) < 4:
+                self.log.debug(f"Ignored short MQTT topic: {topic}")
+                return
+
+            device_str = DEVICE_AIRCON
+            room_str = topic[2]
+            cmd_str = topic[3]
             aircon = self.get_aircon(room_str)
             assert isinstance(aircon, Aircon)
 
