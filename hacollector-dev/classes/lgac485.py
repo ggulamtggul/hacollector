@@ -176,9 +176,9 @@ class LGACPacket:
 
         self.str_fanmove = PAYLOAD_SWING if (self.current_mode & 0x08) else PAYLOAD_FIXED
 
-        self.str_fanmode = self.parse_lgac_fanspeed((self.current_mode >> 4) & 0x07)
-        if self.str_fanmode == '':
-            self.str_fanmode = PAYLOAD_LOW
+        parsed_speed = self.parse_lgac_fanspeed((self.current_mode >> 4) & 0x0f)
+        if parsed_speed != '':
+            self.str_fanmode = parsed_speed
 
     def set_detail_mode(self) -> None:
         self.action = self.get_lgac_action_data(self.str_action)
@@ -406,7 +406,7 @@ class LGACPacketHandler:
             action_str = aircon.action if aircon.action else PAYLOAD_OFF
             opmode_str = aircon.opmode if aircon.opmode else PAYLOAD_COOL
             fanmove_str = aircon.fanmove if aircon.fanmove else PAYLOAD_FIXED
-            fanmode_str = aircon.fanmode if aircon.fanmode else PAYLOAD_LOW
+            fanmode_str = aircon.fanmode if aircon.fanmode else PAYLOAD_SILENT
             target_temp = aircon.target_temp if aircon.target_temp else 24
 
             if cmd_str == MQTT_MODE:

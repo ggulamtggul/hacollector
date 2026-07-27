@@ -33,7 +33,7 @@ class Aircon:
         self.action: str        = 'off'
         self.opmode: str        = 'cool'
         self.fanmove: str       = 'fixed'
-        self.fanmode: str       = 'low'
+        self.fanmode: str       = 'silent'
         self.current_temp: float = 27.0
         self.target_temp: int   = 27
         self.last_availability_status: str = ''
