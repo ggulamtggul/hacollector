@@ -176,7 +176,7 @@ class Discovery:
         plasma_payload = {
             'name': 'Plasma Air Purifier',
             'uniq_id': f'{stable_id}_plasma',
-            'state_topic': state_topic,
+            'state_topic': f'{aircon_common_topic_str}/{MQTT_STATE}',
             'command_topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/{room_safe}/plasma',
             'value_template': '{{ value_json.plasma }}',
             'payload_on': PAYLOAD_ON,
