@@ -196,18 +196,19 @@ class Discovery:
                     
                     for ha_topic, ha_payload in entities:
                          # Subscribe to commands for the climate entity
-                        if 'climate' in ha_topic:
-                            self.sub.append((ha_payload[f'{MQTT_MODE}_{MQTT_CMD_T}'], 0))
-                            self.sub.append((ha_payload[f'{MQTT_TEMP}_{MQTT_CMD_T}'], 0))
-                            self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
-                            self.sub.append((ha_payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'], 0))
-                        elif 'switch' in ha_topic:
-                            self.sub.append((ha_payload['command_topic'], 0))
+                        if ha_payload:
+                            if 'climate' in ha_topic:
+                                self.sub.append((ha_payload[f'{MQTT_MODE}_{MQTT_CMD_T}'], 0))
+                                self.sub.append((ha_payload[f'{MQTT_TEMP}_{MQTT_CMD_T}'], 0))
+                                self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
+                                self.sub.append((ha_payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'], 0))
+                            elif 'switch' in ha_topic and 'command_topic' in ha_payload:
+                                self.sub.append((ha_payload['command_topic'], 0))
                         
                         if remove:
                             self.pub.append({ha_topic: ''})
                         else:
-                            self.pub.append({ha_topic: json.dumps(ha_payload)})
+                            self.pub.append({ha_topic: json.dumps(ha_payload) if ha_payload else ''})
 
     def make_discovery_list(self, dev_name: DeviceType, enabled_device: list, remove: bool) -> None:
         if dev_name == DeviceType.AIRCON:

@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.4.0-dev"   # 반응속도 최우선 인터럽트 적용 버전
+SW_VERSION          = "1.4.1-dev"   # 반응속도 최우선 인터럽트 적용 버전
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name
