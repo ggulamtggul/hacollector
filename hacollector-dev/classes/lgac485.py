@@ -115,7 +115,7 @@ class LGACPacket:
                 self.checksum
             ) = res
             self.set_temp = (self.set_temp & 0x0f) + 0x0f
-            self.current_temp = cfg.TEMPERATURE_ADJUST + self.calc_temp(self.current_temp)
+            self.current_temp = self.calc_temp(self.current_temp)
 
             self.pipe1_temp = self.calc_temp(self.pipe1_temp)
             self.pipe2_temp = self.calc_temp(self.pipe2_temp)

@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.4.3-dev"   # 팬모드 보완 버전
+SW_VERSION          = "1.4.4-dev"   # LGAP 온도 0.5도 중복 보정 제거 버전
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name
