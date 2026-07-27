@@ -580,7 +580,8 @@ class LGACPacketHandler:
                 
                 # 쿼리한 타겟 에어컨 ID 정보
                 target_groupandid = (group_no << 4) + id
-                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=1.5)
+                read_timeout = getattr(self.config, 'rs485_timeout', 2.5) if self.config else 2.5
+                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=read_timeout)
                 
                 if read_packet:
                     self.log.debug(f"Read From LGAC ==> {read_packet.hex()}")
@@ -603,7 +604,7 @@ class LGACPacketHandler:
                     if airconset.action != PAYLOAD_STATUS:
                         self.log.info(f"[RS485 Success] 에어컨 #{id} (Group {group_no}) responded OK. State synced.")
                 else:
-                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within 1.5s")
+                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within {read_timeout}s")
                     if count_error:
                         if airconset.action != PAYLOAD_STATUS:
                             self.log.warning(f"[RS485 Fail] 에어컨 #{id} (Group {group_no}) write failed (Timeout/No Response).")
@@ -614,7 +615,7 @@ class LGACPacketHandler:
                         
                     if count_error:
                         self.read_error_count += 1
-                        if self.read_error_count > MAX_READ_ERROR_RETRY:
+                        if self.read_error_count > 5: # [보정] 잦은 재연결 방지 (3 -> 5회)
                             self.read_error_count = 0
                             await handle_max_read_error()
             else:
