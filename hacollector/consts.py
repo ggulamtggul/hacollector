@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.2.1"   # 정식 버전 업데이트
+SW_VERSION          = "1.2.2"   # 정식 버전 업데이트
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name
@@ -37,6 +37,7 @@ PAYLOAD_STATUS      = 'status'
 PAYLOAD_SCAN        = 'scan'
 PAYLOAD_LOCKON      = 'lockon'
 PAYLOAD_LOCKOFF     = 'lockoff'
+PAYLOAD_PLASMA      = 'plasma'
 
 # mqtt strings
 MQTT_CONFIG         = 'config'
@@ -55,6 +56,10 @@ MQTT_PAYLOAD        = 'pl'
 MQTT_CMD_T          = 'cmd_t'
 MQTT_FAN_SPEED      = 'fan_speed'
 MQTT_AVAILABILITY   = 'availability' # [추가]
+MQTT_PLASMA         = 'plasma'
+MQTT_ERROR_CODE     = 'error_code'
+MQTT_LOAD_ESTIMATE  = 'load_estimate'
+MQTT_THERMAL_LOAD   = 'thermal_load'
 
 MQTT_ICON_AIRCON    = 'mdi:air-conditioner' # 아이콘 기본값 설정
 

@@ -152,16 +152,32 @@ class Discovery:
         
         # Additional Sensors (Pipe 1, Pipe 2 Temperatures)
         additional_sensors = [
-            ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp'),
-            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp')
+            ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp', 'temperature', '°C'),
+            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp', 'temperature', '°C')
         ]
-        for suffix, name, json_key in additional_sensors:
+        for item in additional_sensors:
+            suffix, name, json_key = item[0], item[1], item[2]
+            dev_class, unit = item[3], item[4]
             topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{suffix}/config'
             payload = sensor_payload.copy()
             payload['name'] = name
             payload['uniq_id'] = f'{stable_id}_{suffix}'
             payload['value_template'] = f'{{{{ value_json.{json_key} }}}}'
+            if dev_class:
+                payload['device_class'] = dev_class
+            if unit:
+                payload['unit_of_measurement'] = unit
             results.append((topic, payload))
+
+        # Cleanup obsolete entities in Home Assistant (Outdoor Temp, Error Code, Load Estimate)
+        obsolete_sensors = ['outdoor_temp', 'error_code', 'load_estimate']
+        for obs in obsolete_sensors:
+            obs_topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{obs}/config'
+            results.append((obs_topic, {}))
+
+        # Cleanup Plasma Switch in Home Assistant
+        obs_plasma_topic = f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config'
+        results.append((obs_plasma_topic, {}))
 
         return results
 
@@ -185,6 +201,8 @@ class Discovery:
                             self.sub.append((ha_payload[f'{MQTT_TEMP}_{MQTT_CMD_T}'], 0))
                             self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
                             self.sub.append((ha_payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'], 0))
+                        elif 'switch' in ha_topic:
+                            self.sub.append((ha_payload['command_topic'], 0))
                         
                         if remove:
                             self.pub.append({ha_topic: ''})
@@ -352,7 +370,8 @@ class MqttHandler:
             f'{MQTT_CURRENT_TEMP}': f'{aircon_info.cur_temp:.2f}',
             f'{MQTT_TARGET_TEMP}': f'{aircon_info.target_temp}',
             'pipe1_temp': f'{aircon_info.pipe1_temp:.2f}',
-            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}'
+            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}',
+            'plasma': f'{aircon_info.plasma if getattr(aircon_info, "plasma", None) else PAYLOAD_OFF}'
         }
         self.send_state_to_homeassistant(dev_str, room_str, value)
 
