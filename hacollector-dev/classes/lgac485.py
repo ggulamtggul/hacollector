@@ -170,7 +170,9 @@ class LGACPacket:
         self.set_detail_mode()
 
     def calc_temp(self, num: int) -> float:
-        # v1.1.9-dev original formula
+        # LGAP protocol formula: (192 - raw) / 3.0 for precise temperature
+        if 0 < num < 192:
+            return round((192.0 - num) / 3.0, 1)
         return round(54.0 - num / 4, 2)
 
     def get_detail_mode(self) -> None:
