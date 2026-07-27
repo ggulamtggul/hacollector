@@ -170,37 +170,14 @@ class Discovery:
             results.append((topic, payload))
 
         # Cleanup obsolete entities in Home Assistant (Outdoor Temp, Error Code, Load Estimate)
-        obsolete_suffixes = ['outdoor_temp', 'error_code', 'load_estimate']
-        for obs in obsolete_suffixes:
+        obsolete_sensors = ['outdoor_temp', 'error_code', 'load_estimate']
+        for obs in obsolete_sensors:
             obs_topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{obs}/config'
             results.append((obs_topic, {}))
 
-        # Plasma Switch
-        plasma_topic = f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config'
-        plasma_payload = {
-            'name': 'Plasma Air Purifier',
-            'uniq_id': f'{stable_id}_plasma',
-            'state_topic': f'{aircon_common_topic_str}/{MQTT_STATE}',
-            'command_topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/{room_safe}/plasma',
-            'value_template': '{{ value_json.plasma }}',
-            'payload_on': PAYLOAD_ON,
-            'payload_off': PAYLOAD_OFF,
-            'icon': 'mdi:air-purifier',
-            'device': device_info,
-            'availability': [
-                {
-                    'topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability',
-                    'payload_available': PAYLOAD_ONLINE,
-                    'payload_not_available': PAYLOAD_OFFLINE
-                },
-                {
-                    'topic': availability_topic,
-                    'payload_available': PAYLOAD_ONLINE,
-                    'payload_not_available': PAYLOAD_OFFLINE
-                }
-            ]
-        }
-        results.append((plasma_topic, plasma_payload))
+        # Cleanup Plasma Switch in Home Assistant
+        obs_plasma_topic = f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config'
+        results.append((obs_plasma_topic, {}))
 
         return results
 
