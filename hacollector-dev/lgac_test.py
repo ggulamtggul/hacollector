@@ -1,15 +1,11 @@
 import asyncio
-import logging
 import sys
 
+from classes.lgac485 import LGACPacket, LGACPacketHandler
 from classes.aircon import Aircon
 from classes.appconf import MainConfig
-from classes.lgac485 import LGACPacket, LGACPacketHandler
-from classes.utils import setup_logging
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    load_dotenv = lambda: None
+from classes.utils import ColorLog
+from dotenv import load_dotenv
 
 
 def synchronize_async_helper(to_await):
@@ -31,8 +27,7 @@ def main(argv):
 
     args = parser.parse_args()
 
-    setup_logging('DEBUG')
-    logger = logging.getLogger("LGACTEST")
+    color_log = ColorLog('CONSOLE')
     app_config = MainConfig()
     load_dotenv()
     app_config.load_env_values()
@@ -41,10 +36,10 @@ def main(argv):
 
         chunk = LGACPacket()
         instr: str = str(args.checkchunk)
-        logger.info(f'input = {instr}')
+        color_log.log(f'input = {instr}')
 
         chunk.set_packet_data(bytes.fromhex(instr))
-        logger.info(f'Result = {chunk}')
+        color_log.log(f'Result = {chunk}')
 
         return
 
@@ -53,12 +48,12 @@ def main(argv):
     info: Aircon.Info = synchronize_async_helper(handler.async_send_and_get_result(0, int(args.id), aircon_cmd))
 
     if info is not None:
-        logger.info(
+        color_log.log(
             f'action={info.action}, opmode={info.opmode}, fanmove={info.fanmove}, fanmode={info.fanmode}, '
-            f'current_temp={info.cur_temp}, set_temp={info.target_temp}, plasma={info.plasma}, error_code={info.error_code}'
+            f'current_temp={info.cur_temp}, set_temp={info.target_temp}, '
         )
     else:
-        logger.info("Error Return.")
+        color_log.log("Error Return.")
 
     return
 

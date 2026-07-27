@@ -161,7 +161,7 @@ class LGACPacket:
         self.set_detail_mode()
 
     def calc_temp(self, num: int) -> float:
-        # v1.1.9-dev original formula
+        # maybe value was made from (36 - x) * 4 + 18 * 4.
         return round(54.0 - num / 4, 2)
 
     def get_detail_mode(self) -> None:
@@ -400,13 +400,8 @@ class LGACPacketHandler:
         try:
             aircon = self.get_aircon(room_str)
             assert isinstance(aircon, Aircon)
-
-            # [보정] 기존 에어컨의 최근 실제 상태값을 그대로 보존하고 요청된 항목만 갱신
-            action_str = aircon.action if aircon.action else PAYLOAD_OFF
-            opmode_str = aircon.opmode if aircon.opmode else PAYLOAD_COOL
-            fanmove_str = aircon.fanmove if aircon.fanmove else PAYLOAD_FIXED
-            fanmode_str = aircon.fanmode if aircon.fanmode else PAYLOAD_LOW
-            target_temp = aircon.target_temp if aircon.target_temp else 24
+            action_str = aircon.action # Default to current action
+            opmode_str = aircon.opmode # Default to current opmode
 
             if cmd_str == MQTT_MODE:
                 if payload == PAYLOAD_OFF:
@@ -416,35 +411,32 @@ class LGACPacketHandler:
                     opmode_str = payload
             elif cmd_str == MQTT_SWING_MODE:
                 if payload == PAYLOAD_ON:
-                    fanmove_str = PAYLOAD_SWING
+                    aircon.fanmove = PAYLOAD_SWING
                 else:
-                    fanmove_str = PAYLOAD_FIXED
+                    aircon.fanmove = PAYLOAD_FIXED
             elif cmd_str == MQTT_FAN_MODE:
                 if payload in [PAYLOAD_LOW, PAYLOAD_MEDIUM, PAYLOAD_HIGH, PAYLOAD_SILENT, PAYLOAD_AUTO, PAYLOAD_POWER]:
-                    fanmode_str = payload
+                    aircon.fanmode = payload
                 else:
-                    fanmode_str = PAYLOAD_LOW
+                    aircon.fanmode = PAYLOAD_OFF
             elif cmd_str == MQTT_TARGET_TEMP:
-                target_temp = int(float(payload))
+                aircon.target_temp = int(float(payload))
 
-            # 객체 상태 동기화
+            # Update aircon object with new action and opmode for consistency
             aircon.action = action_str
             aircon.opmode = opmode_str
-            aircon.fanmove = fanmove_str
-            aircon.fanmode = fanmode_str
-            aircon.target_temp = target_temp
 
             self.log.debug(
                 f"act={aircon.action}, opmode={aircon.opmode}, fanmove={aircon.fanmove}, fanspeed={aircon.fanmode}, "
-                f"target_temp={aircon.target_temp}"
+                f"taregt_temp={aircon.target_temp}"
             )
             
             aircon_no = int(self.get_room_aircon_number(room_str))
-            aircon_cmd = Aircon.Info(action_str, opmode_str, fanmove_str, fanmode_str, 0.0, target_temp)
+            aircon_cmd = Aircon.Info(action_str, opmode_str, aircon.fanmove, aircon.fanmode, 0.0, aircon.target_temp)
 
             self.log.info(
                 f"[MQTT Command] Received control request for '{room_str}' (ID: 0x{aircon_no:02x}) -> "
-                f"Action: {action_str}, Mode: {opmode_str}, Temp: {target_temp}C, Fan: {fanmode_str}, Swing: {fanmove_str}"
+                f"Action: {action_str}, Mode: {opmode_str}, Temp: {aircon.target_temp}C, Fan: {aircon.fanmode}"
             )
 
             self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
@@ -580,8 +572,7 @@ class LGACPacketHandler:
                 
                 # 쿼리한 타겟 에어컨 ID 정보
                 target_groupandid = (group_no << 4) + id
-                read_timeout = getattr(self.config, 'rs485_timeout', 2.5) if self.config else 2.5
-                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=read_timeout)
+                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=1.5)
                 
                 if read_packet:
                     self.log.debug(f"Read From LGAC ==> {read_packet.hex()}")
@@ -604,7 +595,7 @@ class LGACPacketHandler:
                     if airconset.action != PAYLOAD_STATUS:
                         self.log.info(f"[RS485 Success] 에어컨 #{id} (Group {group_no}) responded OK. State synced.")
                 else:
-                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within {read_timeout}s")
+                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within 1.5s")
                     if count_error:
                         if airconset.action != PAYLOAD_STATUS:
                             self.log.warning(f"[RS485 Fail] 에어컨 #{id} (Group {group_no}) write failed (Timeout/No Response).")
@@ -615,7 +606,7 @@ class LGACPacketHandler:
                         
                     if count_error:
                         self.read_error_count += 1
-                        if self.read_error_count > 5: # [보정] 잦은 재연결 방지 (3 -> 5회)
+                        if self.read_error_count > MAX_READ_ERROR_RETRY:
                             self.read_error_count = 0
                             await handle_max_read_error()
             else:

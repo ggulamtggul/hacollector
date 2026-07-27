@@ -150,49 +150,18 @@ class Discovery:
         }
         results.append((sensor_topic, sensor_payload))
         
-        # Additional Sensors (Pipe 1, Pipe 2 Temperatures, Error Code, Load Estimate)
+        # Additional Sensors (Pipe 1, Pipe 2 Temperatures)
         additional_sensors = [
-            ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp', 'temperature', '°C'),
-            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp', 'temperature', '°C'),
-            ('error_code', 'Error Code', 'error_code', None, None),
-            ('load_estimate', 'Load Estimate', 'load_estimate', None, '%')
+            ('pipe1_temp', 'Pipe 1 Temperature', 'pipe1_temp'),
+            ('pipe2_temp', 'Pipe 2 Temperature', 'pipe2_temp')
         ]
-        for suffix, name, json_key, dev_cls, unit in additional_sensors:
+        for suffix, name, json_key in additional_sensors:
             topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{suffix}/config'
             payload = sensor_payload.copy()
             payload['name'] = name
             payload['uniq_id'] = f'{stable_id}_{suffix}'
             payload['value_template'] = f'{{{{ value_json.{json_key} }}}}'
-            if dev_cls:
-                payload['device_class'] = dev_cls
-            else:
-                payload.pop('device_class', None)
-                payload.pop('state_class', None)
-            if unit:
-                payload['unit_of_measurement'] = unit
-            else:
-                payload.pop('unit_of_measurement', None)
             results.append((topic, payload))
-
-        # Plasma Switch Entity
-        plasma_topic = f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config'
-        plasma_payload = {
-            'name': 'Plasma Air Purifier',
-            'uniq_id': f'{stable_id}_plasma',
-            'device': device_info,
-            'state_topic': f'{aircon_common_topic_str}/{MQTT_STATE}',
-            'value_template': '{{ value_json.plasma }}',
-            'command_topic': f'{aircon_common_topic_str}/{MQTT_PLASMA}',
-            'payload_on': PAYLOAD_ON,
-            'payload_off': PAYLOAD_OFF,
-            'ic': 'mdi:shield-outline',
-            'availability_mode': 'all',
-            'availability': [
-                {'topic': f'{cfg.CONF_AIRCON_DEVICE_NAME}/availability', 'payload_available': PAYLOAD_ONLINE, 'payload_not_available': PAYLOAD_OFFLINE},
-                {'topic': availability_topic, 'payload_available': PAYLOAD_ONLINE, 'payload_not_available': PAYLOAD_OFFLINE}
-            ]
-        }
-        results.append((plasma_topic, plasma_payload))
 
         return results
 
@@ -216,8 +185,6 @@ class Discovery:
                             self.sub.append((ha_payload[f'{MQTT_TEMP}_{MQTT_CMD_T}'], 0))
                             self.sub.append((ha_payload[f'{MQTT_FAN_MODE}_{MQTT_CMD_T}'], 0))
                             self.sub.append((ha_payload[f'{MQTT_SWING_MODE}_{MQTT_CMD_T}'], 0))
-                        elif 'switch' in ha_topic:
-                            self.sub.append((ha_payload['command_topic'], 0))
                         
                         if remove:
                             self.pub.append({ha_topic: ''})
@@ -385,10 +352,7 @@ class MqttHandler:
             f'{MQTT_CURRENT_TEMP}': f'{aircon_info.cur_temp:.2f}',
             f'{MQTT_TARGET_TEMP}': f'{aircon_info.target_temp}',
             'pipe1_temp': f'{aircon_info.pipe1_temp:.2f}',
-            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}',
-            'plasma': f'{aircon_info.plasma}',
-            'error_code': aircon_info.error_code,
-            'load_estimate': aircon_info.load_estimate
+            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}'
         }
         self.send_state_to_homeassistant(dev_str, room_str, value)
 
