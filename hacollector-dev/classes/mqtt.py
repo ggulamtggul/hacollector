@@ -393,7 +393,8 @@ class MqttHandler:
             f'{MQTT_CURRENT_TEMP}': f'{aircon_info.cur_temp:.2f}',
             f'{MQTT_TARGET_TEMP}': f'{aircon_info.target_temp}',
             'pipe1_temp': f'{aircon_info.pipe1_temp:.2f}',
-            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}'
+            'pipe2_temp': f'{aircon_info.pipe2_temp:.2f}',
+            'plasma': f'{aircon_info.plasma if getattr(aircon_info, "plasma", None) else PAYLOAD_OFF}'
         }
         self.send_state_to_homeassistant(dev_str, room_str, value)
 

@@ -123,7 +123,7 @@ class LGACPacket:
             self.pipe1_temp = self.calc_temp(self.pipe1_temp)
             self.pipe2_temp = self.calc_temp(self.pipe2_temp)
             self.outdoor_temp = self.calc_temp(self.fill_outer_sensor)
-            self.str_plasma = PAYLOAD_ON if (self.action & 0x10) else PAYLOAD_OFF
+            self.str_plasma = PAYLOAD_ON if bool(self.action & 0x10) else PAYLOAD_OFF
             self.error_code = self.fill_unknown4
             self.load_estimate = round(self.fill_model / 2.0, 1)
             self.get_detail_mode()
