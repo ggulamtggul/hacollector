@@ -168,13 +168,11 @@ class LGACPacket:
         self.set_detail_mode()
 
     def calc_temp(self, num: int) -> float:
-        # LGAP protocol formula: (192 - raw) / 3.0 for precise temperature
-        if 0 < num < 192:
-            return round((192.0 - num) / 3.0, 1)
+        # v1.1.9-dev original formula
         return round(54.0 - num / 4, 2)
 
     def get_detail_mode(self) -> None:
-        self.str_action = self.parse_lgac_action(self.action & 0x0f)
+        self.str_action = self.parse_lgac_action(self.action)
         if self.str_action == '':
             self.str_action = PAYLOAD_STATUS
 

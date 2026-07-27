@@ -161,7 +161,7 @@ class LGACPacket:
         self.set_detail_mode()
 
     def calc_temp(self, num: int) -> float:
-        # maybe value was made from (36 - x) * 4 + 18 * 4.
+        # v1.1.9-dev original formula
         return round(54.0 - num / 4, 2)
 
     def get_detail_mode(self) -> None:
