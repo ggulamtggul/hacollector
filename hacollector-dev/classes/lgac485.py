@@ -253,6 +253,7 @@ class LGACPacketHandler:
                 cfg.PACKET_RESEND_INTERVAL_SEC
             )
         self.command_queue: asyncio.Queue = asyncio.Queue()
+        self._cmd_event: asyncio.Event = asyncio.Event()
         self.loop: asyncio.AbstractEventLoop = loop if loop else asyncio.get_running_loop()
         self.read_error_count           = 0
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
@@ -472,6 +473,7 @@ class LGACPacketHandler:
             )
 
             self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
+            self.loop.call_soon_threadsafe(self._cmd_event.set)
             
             self.log.debug(
                 f"[From HA]{device_str}/{room_str}/set = [mode={aircon.action}, target_temp={aircon.target_temp}]"
@@ -787,15 +789,27 @@ class LGACPacketHandler:
         for aircon in self.aircon:
             assert isinstance(aircon, Aircon)
             if (now - aircon.scan.tick) > self.scan_interval:
+                # 제어 명령이 대기 중이라면 폴링을 유예하고 즉시 제어 우선권 부여
+                if self._cmd_event.is_set():
+                    self.log.debug("[Priority Control] High priority MQTT command pending. Deferring scan for instant control response!")
+                    break
+
                 aircon.scan.tick = now
                 self.log.debug(f">>>>>Rescan {aircon} Check Sending!!!!")
                 await self.async_scan_aircon_status(aircon)
-                await asyncio.sleep(cfg.PACKET_RESEND_INTERVAL_SEC)
+                
+                # 인터벌 간격 단축 (0.8초 -> 0.2초) 및 명령 감지 시 즉시 중단
+                try:
+                    await asyncio.wait_for(self._cmd_event.wait(), timeout=0.2)
+                    self.log.debug("[Priority Control] High priority MQTT command detected during scan interval! Interrupting scan for instant control execution.")
+                    break
+                except asyncio.TimeoutError:
+                    pass
 
     async def async_lgac_main_write_loop(self) -> None:
         while True:
-            # await asyncio.sleep(0.01) # Asyncio Queue get handles waiting efficiently
             (aircon_no, room_str, aircon_cmd) = await self.command_queue.get()
+            self._cmd_event.clear()
             
             # [Queue Debounce] Skip if there is a newer command in the queue for the same aircon
             has_newer = False
@@ -811,8 +825,8 @@ class LGACPacketHandler:
             
             assert isinstance(aircon_cmd, Aircon.Info)
             self.log.info(
-                f"[RS485 Write] Sending write packet to 에어컨 #{aircon_no} ({room_str}) -> "
-                f"Set Temp: {aircon_cmd.target_temp}C, Action: {aircon_cmd.action}, Mode: {aircon_cmd.opmode}"
+                f"[RS485 Priority Write] Immediate command execution for 에어컨 #{aircon_no} ({room_str}) -> "
+                f"Set Temp: {aircon_cmd.target_temp}C, Action: {aircon_cmd.action}, Mode: {aircon_cmd.opmode}, Fan: {aircon_cmd.fanmode}, Swing: {aircon_cmd.fanmove}"
             )
             aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
             if aircon_info:
