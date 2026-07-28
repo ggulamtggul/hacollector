@@ -23,9 +23,6 @@ class Aircon:
         pipe1_temp: float = 0.0
         pipe2_temp: float = 0.0
         outdoor_temp: float = 0.0
-        plasma: str = 'off'
-        error_code: int = 0
-        load_estimate: float = 0.0
 
     def __init__(self, room_name: str = '') -> None:
         self.scan = Aircon.ScanInfo()
@@ -36,7 +33,7 @@ class Aircon:
         self.action: str        = 'off'
         self.opmode: str        = 'cool'
         self.fanmove: str       = 'fixed'
-        self.fanmode: str       = 'low'
+        self.fanmode: str       = 'silent'
         self.current_temp: float = 27.0
         self.target_temp: int   = 27
         self.last_availability_status: str = ''
@@ -44,9 +41,6 @@ class Aircon:
         self.pipe1_temp: float = 0.0
         self.pipe2_temp: float = 0.0
         self.outdoor_temp: float = 0.0
-        self.plasma: str       = 'off'
-        self.error_code: int    = 0
-        self.load_estimate: float = 0.0
 
     def set_initial_state(self) -> None:
         self.scan.reset()

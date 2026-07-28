@@ -80,9 +80,6 @@ class LGACPacket:
         self.str_opmode: str = ''
         self.str_fanmove: str = ''
         self.str_fanmode: str = ''
-        self.str_plasma: str = 'off'
-        self.error_code: int = 0
-        self.load_estimate: float = 0.0
         if rawdata is not None:
             self.set_packet_data(rawdata)
 
@@ -118,14 +115,11 @@ class LGACPacket:
                 self.checksum
             ) = res
             self.set_temp = (self.set_temp & 0x0f) + 0x0f
-            self.current_temp = cfg.TEMPERATURE_ADJUST + self.calc_temp(self.current_temp)
+            self.current_temp = self.calc_temp(self.current_temp)
 
             self.pipe1_temp = self.calc_temp(self.pipe1_temp)
             self.pipe2_temp = self.calc_temp(self.pipe2_temp)
             self.outdoor_temp = self.calc_temp(self.fill_outer_sensor)
-            self.str_plasma = PAYLOAD_ON if bool(self.action & 0x10) else PAYLOAD_OFF
-            self.error_code = self.fill_unknown4
-            self.load_estimate = round(self.fill_model / 2.0, 1)
             self.get_detail_mode()
             logger.debug(f"LGAC Packet Body = [ {rawdata.hex()} ]")
             return True
@@ -157,13 +151,12 @@ class LGACPacket:
         ret_enum = self.LGAC_FAN_SPEED.get(inbyte)
         return ret_enum if ret_enum is not None else ''
 
-    def make_new_packet(self, group, id, action, operation, fanmove, fanspeed, temp, plasma='off') -> None:
+    def make_new_packet(self, group, id, action, operation, fanmove, fanspeed, temp) -> None:
         self.groupandid = (group << 4) + id
         self.str_action = action
         self.str_opmode = operation
         self.str_fanmove = fanmove
         self.str_fanmode = fanspeed
-        self.str_plasma = plasma
         self.set_temp = temp - 0x0f if 18 <= temp <= 30 else 10
         self.set_detail_mode()
 
@@ -183,15 +176,12 @@ class LGACPacket:
 
         self.str_fanmove = PAYLOAD_SWING if (self.current_mode & 0x08) else PAYLOAD_FIXED
 
-        self.str_fanmode = self.parse_lgac_fanspeed((self.current_mode >> 4) & 0x07)
-        if self.str_fanmode == '':
-            self.str_fanmode = PAYLOAD_LOW
+        parsed_speed = self.parse_lgac_fanspeed((self.current_mode >> 4) & 0x0f)
+        if parsed_speed != '':
+            self.str_fanmode = parsed_speed
 
     def set_detail_mode(self) -> None:
         self.action = self.get_lgac_action_data(self.str_action)
-        if self.str_plasma == PAYLOAD_ON:
-            self.action |= 0x10
-
         opmode = self.get_lgac_mode_data(self.str_opmode)
 
         if self.str_fanmove == PAYLOAD_SWING:
@@ -206,9 +196,9 @@ class LGACPacket:
         return (
             f"GroupandID:{self.groupandid}, action:{self.str_action}, "
             f"operation:{self.str_opmode}, fanmove:{self.str_fanmove}, "
-            f"fanmode:{self.str_fanmode}, temp:{self.set_temp}, plasma:{self.str_plasma}, "
+            f"fanmode:{self.str_fanmode}, temp:{self.set_temp}, "
             f"currenttemp:{self.current_temp}, actemp1:{self.pipe1_temp}, actemp2:{self.pipe2_temp}, "
-            f"outtemp:{self.outdoor_temp}, error:{self.error_code}, load:{self.load_estimate}"
+            f"outtemp:{self.outdoor_temp}"
         )
 
     def make_send_packet(self) -> bytes:
@@ -253,6 +243,7 @@ class LGACPacketHandler:
                 cfg.PACKET_RESEND_INTERVAL_SEC
             )
         self.command_queue: asyncio.Queue = asyncio.Queue()
+        self._cmd_event: asyncio.Event = asyncio.Event()
         self.loop: asyncio.AbstractEventLoop = loop if loop else asyncio.get_running_loop()
         self.read_error_count           = 0
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
@@ -287,12 +278,8 @@ class LGACPacketHandler:
             changed.append(f"Mode: {device_obj.opmode or 'none'} -> {info.opmode}")
         if device_obj.target_temp != info.target_temp:
             changed.append(f"TargetTemp: {device_obj.target_temp}C -> {info.target_temp}C")
-        if abs(device_obj.current_temp - info.cur_temp) >= 0.5:
+        if round(device_obj.current_temp, 1) != round(info.cur_temp, 1):
             changed.append(f"RoomTemp: {device_obj.current_temp}C -> {info.cur_temp}C")
-        if device_obj.plasma != info.plasma:
-            changed.append(f"Plasma: {device_obj.plasma} -> {info.plasma}")
-        if device_obj.error_code != info.error_code:
-            changed.append(f"ErrorCode: {device_obj.error_code} -> {info.error_code}")
 
         if changed and device_obj.action != '':
             tag = "[Status Changed (Intercepted)]" if is_intercepted else "[Status Changed]"
@@ -306,9 +293,6 @@ class LGACPacketHandler:
         device_obj.pipe1_temp = info.pipe1_temp
         device_obj.pipe2_temp = info.pipe2_temp
         device_obj.outdoor_temp = info.outdoor_temp
-        device_obj.plasma = info.plasma
-        device_obj.error_code = info.error_code
-        device_obj.load_estimate = info.load_estimate
 
         if self.notify_to_homeassistant:
             self.notify_to_homeassistant(device_obj.name, device_obj.room_name, info)
@@ -422,9 +406,8 @@ class LGACPacketHandler:
             action_str = aircon.action if aircon.action else PAYLOAD_OFF
             opmode_str = aircon.opmode if aircon.opmode else PAYLOAD_COOL
             fanmove_str = aircon.fanmove if aircon.fanmove else PAYLOAD_FIXED
-            fanmode_str = aircon.fanmode if aircon.fanmode else PAYLOAD_LOW
+            fanmode_str = aircon.fanmode if aircon.fanmode else PAYLOAD_SILENT
             target_temp = aircon.target_temp if aircon.target_temp else 24
-            plasma_str = aircon.plasma if aircon.plasma else PAYLOAD_OFF
 
             if cmd_str == MQTT_MODE:
                 if payload == PAYLOAD_OFF:
@@ -444,8 +427,6 @@ class LGACPacketHandler:
                     fanmode_str = PAYLOAD_LOW
             elif cmd_str == MQTT_TARGET_TEMP:
                 target_temp = int(float(payload))
-            elif cmd_str == MQTT_PLASMA:
-                plasma_str = payload
 
             # 객체 상태 동기화
             aircon.action = action_str
@@ -453,25 +434,25 @@ class LGACPacketHandler:
             aircon.fanmove = fanmove_str
             aircon.fanmode = fanmode_str
             aircon.target_temp = target_temp
-            aircon.plasma = plasma_str
 
             self.log.debug(
                 f"act={aircon.action}, opmode={aircon.opmode}, fanmove={aircon.fanmove}, fanspeed={aircon.fanmode}, "
-                f"target_temp={aircon.target_temp}, plasma={aircon.plasma}"
+                f"target_temp={aircon.target_temp}"
             )
             
             aircon_no = int(self.get_room_aircon_number(room_str))
             aircon_cmd = Aircon.Info(
                 action_str, opmode_str, fanmove_str, fanmode_str, 0.0, target_temp,
-                aircon.pipe1_temp, aircon.pipe2_temp, aircon.outdoor_temp, plasma_str, aircon.error_code, aircon.load_estimate
+                aircon.pipe1_temp, aircon.pipe2_temp, aircon.outdoor_temp
             )
 
             self.log.info(
                 f"[MQTT Command] Received control request for '{room_str}' (ID: 0x{aircon_no:02x}) -> "
-                f"Action: {action_str}, Mode: {opmode_str}, Temp: {target_temp}C, Fan: {fanmode_str}, Swing: {fanmove_str}, Plasma: {plasma_str}"
+                f"Action: {action_str}, Mode: {opmode_str}, Temp: {target_temp}C, Fan: {fanmode_str}, Swing: {fanmove_str}"
             )
 
             self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
+            self.loop.call_soon_threadsafe(self._cmd_event.set)
             
             self.log.debug(
                 f"[From HA]{device_str}/{room_str}/set = [mode={aircon.action}, target_temp={aircon.target_temp}]"
@@ -787,15 +768,27 @@ class LGACPacketHandler:
         for aircon in self.aircon:
             assert isinstance(aircon, Aircon)
             if (now - aircon.scan.tick) > self.scan_interval:
+                # 제어 명령이 대기 중이라면 폴링을 유예하고 즉시 제어 우선권 부여
+                if self._cmd_event.is_set():
+                    self.log.debug("[Priority Control] High priority MQTT command pending. Deferring scan for instant control response!")
+                    break
+
                 aircon.scan.tick = now
                 self.log.debug(f">>>>>Rescan {aircon} Check Sending!!!!")
                 await self.async_scan_aircon_status(aircon)
-                await asyncio.sleep(cfg.PACKET_RESEND_INTERVAL_SEC)
+                
+                # 인터벌 간격 단축 (0.8초 -> 0.2초) 및 명령 감지 시 즉시 중단
+                try:
+                    await asyncio.wait_for(self._cmd_event.wait(), timeout=0.2)
+                    self.log.debug("[Priority Control] High priority MQTT command detected during scan interval! Interrupting scan for instant control execution.")
+                    break
+                except asyncio.TimeoutError:
+                    pass
 
     async def async_lgac_main_write_loop(self) -> None:
         while True:
-            # await asyncio.sleep(0.01) # Asyncio Queue get handles waiting efficiently
             (aircon_no, room_str, aircon_cmd) = await self.command_queue.get()
+            self._cmd_event.clear()
             
             # [Queue Debounce] Skip if there is a newer command in the queue for the same aircon
             has_newer = False
@@ -811,8 +804,8 @@ class LGACPacketHandler:
             
             assert isinstance(aircon_cmd, Aircon.Info)
             self.log.info(
-                f"[RS485 Write] Sending write packet to 에어컨 #{aircon_no} ({room_str}) -> "
-                f"Set Temp: {aircon_cmd.target_temp}C, Action: {aircon_cmd.action}, Mode: {aircon_cmd.opmode}"
+                f"[RS485 Priority Write] Immediate command execution for 에어컨 #{aircon_no} ({room_str}) -> "
+                f"Set Temp: {aircon_cmd.target_temp}C, Action: {aircon_cmd.action}, Mode: {aircon_cmd.opmode}, Fan: {aircon_cmd.fanmode}, Swing: {aircon_cmd.fanmove}"
             )
             aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
             if aircon_info:
