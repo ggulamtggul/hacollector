@@ -278,7 +278,7 @@ class LGACPacketHandler:
             changed.append(f"Mode: {device_obj.opmode or 'none'} -> {info.opmode}")
         if device_obj.target_temp != info.target_temp:
             changed.append(f"TargetTemp: {device_obj.target_temp}C -> {info.target_temp}C")
-        if abs(device_obj.current_temp - info.cur_temp) >= 0.5:
+        if round(device_obj.current_temp, 1) != round(info.cur_temp, 1):
             changed.append(f"RoomTemp: {device_obj.current_temp}C -> {info.cur_temp}C")
 
         if changed and device_obj.action != '':
