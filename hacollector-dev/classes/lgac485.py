@@ -179,6 +179,8 @@ class LGACPacket:
         parsed_speed = self.parse_lgac_fanspeed((self.current_mode >> 4) & 0x0f)
         if parsed_speed != '':
             self.str_fanmode = parsed_speed
+        else:
+            self.str_fanmode = PAYLOAD_LOW
 
     def set_detail_mode(self) -> None:
         self.action = self.get_lgac_action_data(self.str_action)
@@ -423,6 +425,8 @@ class LGACPacketHandler:
             elif cmd_str == MQTT_FAN_MODE:
                 if payload in [PAYLOAD_LOW, PAYLOAD_MEDIUM, PAYLOAD_HIGH, PAYLOAD_SILENT, PAYLOAD_AUTO, PAYLOAD_POWER]:
                     fanmode_str = payload
+                elif payload == PAYLOAD_OFF:
+                    fanmode_str = PAYLOAD_OFF
                 else:
                     fanmode_str = PAYLOAD_LOW
             elif cmd_str == MQTT_TARGET_TEMP:
@@ -452,7 +456,6 @@ class LGACPacketHandler:
             )
 
             self.loop.call_soon_threadsafe(self.command_queue.put_nowait, (aircon_no, room_str, aircon_cmd))
-            self.loop.call_soon_threadsafe(self._cmd_event.set)
             
             self.log.debug(
                 f"[From HA]{device_str}/{room_str}/set = [mode={aircon.action}, target_temp={aircon.target_temp}]"
@@ -694,17 +697,10 @@ class LGACPacketHandler:
                 self.log.info(f"FOUND DEVICE at ID: 0x{id:02x}")
                 found_devices.append(id)
 
-                # [FIX] Immediately publish found device state and availability
+                # [FIX] Immediately update local device state, publish state and availability
                 for device in self.aircon:
                     if device.id == id:
-                        # 1. Update State (Temp, Mode, etc.)
-                        if self.notify_to_homeassistant:
-                             self.notify_to_homeassistant(device.name, device.room_name, info)
-                        
-                        # 2. Update Availability (Online)
-                        if self.notify_availability:
-                             self.notify_availability(device.room_name, PAYLOAD_ONLINE)
-                             device.last_availability_status = PAYLOAD_ONLINE
+                        self._update_device_state(device, id, info, is_intercepted=False)
                         break
 
             # Scan delay
@@ -769,45 +765,48 @@ class LGACPacketHandler:
             assert isinstance(aircon, Aircon)
             if (now - aircon.scan.tick) > self.scan_interval:
                 # 제어 명령이 대기 중이라면 폴링을 유예하고 즉시 제어 우선권 부여
-                if self._cmd_event.is_set():
-                    self.log.debug("[Priority Control] High priority MQTT command pending. Deferring scan for instant control response!")
+                if not self.command_queue.empty():
+                    self.log.debug("[Priority Control] High priority MQTT command pending in queue. Deferring scan for instant control response!")
                     break
 
                 aircon.scan.tick = now
                 self.log.debug(f">>>>>Rescan {aircon} Check Sending!!!!")
                 await self.async_scan_aircon_status(aircon)
                 
-                # 인터벌 간격 단축 (0.8초 -> 0.2초) 및 명령 감지 시 즉시 중단
-                try:
-                    await asyncio.wait_for(self._cmd_event.wait(), timeout=0.2)
-                    self.log.debug("[Priority Control] High priority MQTT command detected during scan interval! Interrupting scan for instant control execution.")
+                if not self.command_queue.empty():
+                    self.log.debug("[Priority Control] High priority MQTT command detected during scan! Interrupting scan for instant control execution.")
                     break
-                except asyncio.TimeoutError:
-                    pass
+                
+                await asyncio.sleep(cfg.PACKET_RESEND_INTERVAL_SEC)
 
     async def async_lgac_main_write_loop(self) -> None:
         while True:
-            (aircon_no, room_str, aircon_cmd) = await self.command_queue.get()
-            self._cmd_event.clear()
-            
-            # [Queue Debounce] Skip if there is a newer command in the queue for the same aircon
-            has_newer = False
-            for item in self.command_queue._queue:
-                if item[0] == aircon_no:
-                    has_newer = True
-                    break
-            
-            if has_newer:
-                self.log.debug(f"[Queue Debounce] Discarding outdated command for {room_str} (aircon #{aircon_no})")
+            try:
+                (aircon_no, room_str, aircon_cmd) = await self.command_queue.get()
+                
+                # [Queue Debounce] Skip if there is a newer command in the queue for the same aircon
+                has_newer = False
+                for item in self.command_queue._queue:
+                    if item[0] == aircon_no:
+                        has_newer = True
+                        break
+                
+                if has_newer:
+                    self.log.debug(f"[Queue Debounce] Discarding outdated command for {room_str} (aircon #{aircon_no})")
+                    self.command_queue.task_done()
+                    continue
+                
+                assert isinstance(aircon_cmd, Aircon.Info)
+                self.log.info(
+                    f"[RS485 Priority Write] Immediate command execution for 에어컨 #{aircon_no} ({room_str}) -> "
+                    f"Set Temp: {aircon_cmd.target_temp}C, Action: {aircon_cmd.action}, Mode: {aircon_cmd.opmode}, Fan: {aircon_cmd.fanmode}, Swing: {aircon_cmd.fanmove}"
+                )
+                aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
+                if aircon_info:
+                    self.notify_to_homeassistant(DEVICE_AIRCON, room_str, aircon_info)
                 self.command_queue.task_done()
-                continue
-            
-            assert isinstance(aircon_cmd, Aircon.Info)
-            self.log.info(
-                f"[RS485 Priority Write] Immediate command execution for 에어컨 #{aircon_no} ({room_str}) -> "
-                f"Set Temp: {aircon_cmd.target_temp}C, Action: {aircon_cmd.action}, Mode: {aircon_cmd.opmode}, Fan: {aircon_cmd.fanmode}, Swing: {aircon_cmd.fanmove}"
-            )
-            aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
-            if aircon_info:
-                self.notify_to_homeassistant(DEVICE_AIRCON, room_str, aircon_info)
-            self.command_queue.task_done()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.log.error(f"Error in main write loop: {e}")
+                await asyncio.sleep(0.5)

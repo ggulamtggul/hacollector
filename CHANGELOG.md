@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.6-dev (Development Addon)
+- **Fix (Critical)**: Resolved 4-hour freezing bug and priority control deadlock by replacing `_cmd_event` with thread-safe `command_queue.empty()` checks and adding exception shielding in write loop.
+- **Fix**: Corrected MQTT Discovery cleanup topic for plasma binary_sensor (`binary_sensor/{room}_plasma/config`) to automatically purge legacy plasma entities in Home Assistant.
+- **Fix**: Added `PAYLOAD_OFF` handling in `MQTT_FAN_MODE` and improved fanmode parsing fallback.
+
 ## 1.1.9-dev (Development Addon)
 - **Cleanup**: Removed Outdoor Temperature sensor from Home Assistant auto-discovery and state payload, since it represents multiplexed compressor frequency/status data rather than real ambient temperature.
 

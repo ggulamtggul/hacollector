@@ -175,9 +175,9 @@ class Discovery:
             obs_topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{obs}/config'
             results.append((obs_topic, {}))
 
-        # Cleanup Plasma Switch in Home Assistant
-        obs_plasma_topic = f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config'
-        results.append((obs_plasma_topic, {}))
+        # Cleanup Plasma Entities (binary_sensor and switch) in Home Assistant
+        results.append((f'{cfg.HA_PREFIX}/binary_sensor/{room_safe}_plasma/config', {}))
+        results.append((f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config', {}))
 
         return results
 
