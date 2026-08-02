@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.7-dev (Development Addon)
+- **Fix**: Resolved targeted boot scan local state sync bug where initial discovery did not update local Aircon object state, preventing accidental OFF actions on immediate HA control after boot.
+
 ## 1.4.6-dev (Development Addon)
 - **Fix (Critical)**: Resolved 4-hour freezing bug and priority control deadlock by replacing `_cmd_event` with thread-safe `command_queue.empty()` checks and adding exception shielding in write loop.
 - **Fix**: Corrected MQTT Discovery cleanup topic for plasma binary_sensor (`binary_sensor/{room}_plasma/config`) to automatically purge legacy plasma entities in Home Assistant.

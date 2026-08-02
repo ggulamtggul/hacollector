@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.4.6-dev"   # Priority control deadlock 및 멈춤 버그 수정 버전
+SW_VERSION          = "1.4.7-dev"   # Boot scan state sync 및 local state 갱신 버그 수정 버전
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name
