@@ -83,7 +83,8 @@ class TCPComm:
                     await asyncio.sleep(min(1.0 * attempt, 3.0))
 
             # bubble up last error
-            assert last_err is not None
+            if last_err is None:
+                raise ConnectionError(f"Failed to connect to {self.server}:{self.port}")
             raise last_err
 
     async def close_async_socket(self) -> None:
@@ -116,7 +117,8 @@ class TCPComm:
         await self.wait_safe_communication()
         logger = logging.getLogger("TCPComm")
         try:
-            assert self.writer is not None
+            if self.writer is None:
+                return False
             self.writer.write(data)
             async with asyncio.timeout(5.0):
                  await self.writer.drain()
@@ -127,7 +129,8 @@ class TCPComm:
             await self.close_async_socket()
             await self.connect_async_socket()
             try:
-                assert self.writer is not None
+                if self.writer is None:
+                    return False
                 self.writer.write(data)
                 async with asyncio.timeout(5.0):
                     await self.writer.drain()
@@ -147,7 +150,8 @@ class TCPComm:
         try:
             while length > len(self.read_buffer):
                 try:
-                    assert self.reader is not None
+                    if self.reader is None:
+                        return b''
                     buffer = await self.reader.read(self.buffer_size)
                     if buffer == b'':
                         # peer closed
@@ -185,7 +189,8 @@ class TCPComm:
         """
         await self.wait_safe_communication()
         try:
-            assert self.reader is not None
+            if self.reader is None:
+                return b''
             buffer = await asyncio.wait_for(self.reader.read(length), timeout=2.0)
         except asyncio.TimeoutError:
             # Suppress log if we don't plan to reconnect (expected timeout)
@@ -216,7 +221,8 @@ class TCPComm:
         """
         await self.wait_safe_communication()
         try:
-            assert self.reader is not None
+            if self.reader is None:
+                return b''
             # read() return b'' if EOF.
             buffer = await asyncio.wait_for(self.reader.read(length), timeout=1.0)
             if buffer == b'':

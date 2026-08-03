@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.8-dev (Development Addon)
+- **Refactor**: Replaced legacy `assert` statements with defensive null checks and explicit type verification across socket and packet parsing classes to improve runtime stability.
+
 ## 1.4.7-dev (Development Addon)
 - **Fix**: Resolved targeted boot scan local state sync bug where initial discovery did not update local Aircon object state, preventing accidental OFF actions on immediate HA control after boot.
 

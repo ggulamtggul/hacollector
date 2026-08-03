@@ -344,15 +344,16 @@ class LGACPacketHandler:
                 
                 if other_room:
                     other_device = self.get_aircon(other_room)
-                    other_info = Aircon.Info(
-                        other_packet.str_action,
-                        other_packet.str_opmode,
-                        other_packet.str_fanmove,
-                        other_packet.str_fanmode,
-                        other_packet.current_temp,
-                        other_packet.set_temp
-                    )
-                    self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
+                    if other_device:
+                        other_info = Aircon.Info(
+                            other_packet.str_action,
+                            other_packet.str_opmode,
+                            other_packet.str_fanmove,
+                            other_packet.str_fanmode,
+                            other_packet.current_temp,
+                            other_packet.set_temp
+                        )
+                        self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
                 
                 # 추출된 유효 패킷 버퍼에서 삭제
                 del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
@@ -374,14 +375,14 @@ class LGACPacketHandler:
         ret_str = self.system_room_aircon_rev.get(instr)
         return ret_str if ret_str is not None else ''
 
-    def get_aircon(self, room_name: str) -> Aircon:
-        if self.aircon is not None and len(self.aircon) >= 1:
+    def get_aircon(self, room_name: str) -> Aircon | None:
+        if self.aircon:
             for item in self.aircon:
-                assert isinstance(item, Aircon)
-                # Match exact name or name with spaces replaced by underscores (for MQTT compatibility)
-                if item.room_name == room_name or item.room_name.replace(' ', '_') == room_name:
-                    return item
-        assert False, "get_aircon error!"
+                if isinstance(item, Aircon):
+                    # Match exact name or name with spaces replaced by underscores (for MQTT compatibility)
+                    if item.room_name == room_name or item.room_name.replace(' ', '_') == room_name:
+                        return item
+        return None
 
     def is_checksum_ok(self, body: bytes) -> bool:
         checksum = sum(body[:-1])
@@ -402,7 +403,9 @@ class LGACPacketHandler:
             room_str = topic[2]
             cmd_str = topic[3]
             aircon = self.get_aircon(room_str)
-            assert isinstance(aircon, Aircon)
+            if not aircon:
+                self.log.warning(f"Aircon device for room '{room_str}' not found.")
+                return
 
             # [보정] 기존 에어컨의 최근 실제 상태값을 그대로 보존하고 요청된 항목만 갱신
             action_str = aircon.action if aircon.action else PAYLOAD_OFF
@@ -521,21 +524,22 @@ class LGACPacketHandler:
                             
                         if other_room:
                             other_device = self.get_aircon(other_room)
-                            other_info = Aircon.Info(
-                                other_packet.str_action,
-                                other_packet.str_opmode,
-                                other_packet.str_fanmove,
-                                other_packet.str_fanmode,
-                                other_packet.current_temp,
-                                other_packet.set_temp,
-                                other_packet.pipe1_temp,
-                                other_packet.pipe2_temp,
-                                other_packet.outdoor_temp
-                            )
-                            self.log.info(f"[Packet Hunter] ID Mismatch. Intercepting for room '{other_room}' (ID: 0x{packet_id:02x}) -> Power: {other_info.action}, Temp: {other_info.cur_temp}")
-                            self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
-                        else:
-                            self.log.debug(f"[Packet Hunter] Intercepted unregistered ID 0x{packet_id:02x}")
+                            if other_device:
+                                other_info = Aircon.Info(
+                                    other_packet.str_action,
+                                    other_packet.str_opmode,
+                                    other_packet.str_fanmove,
+                                    other_packet.str_fanmode,
+                                    other_packet.current_temp,
+                                    other_packet.set_temp,
+                                    other_packet.pipe1_temp,
+                                    other_packet.pipe2_temp,
+                                    other_packet.outdoor_temp
+                                )
+                                self.log.info(f"[Packet Hunter] ID Mismatch. Intercepting for room '{other_room}' (ID: 0x{packet_id:02x}) -> Power: {other_info.action}, Temp: {other_info.cur_temp}")
+                                self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
+                            else:
+                                self.log.debug(f"[Packet Hunter] Intercepted unregistered ID 0x{packet_id:02x}")
                         
                         # 버퍼에서 이 패킷만 소모시키고 계속 헌팅 수행
                         del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
@@ -762,7 +766,8 @@ class LGACPacketHandler:
 
     async def async_scan_aircons(self, now: float):
         for aircon in self.aircon:
-            assert isinstance(aircon, Aircon)
+            if not isinstance(aircon, Aircon):
+                continue
             if (now - aircon.scan.tick) > self.scan_interval:
                 # 제어 명령이 대기 중이라면 폴링을 유예하고 즉시 제어 우선권 부여
                 if not self.command_queue.empty():
@@ -796,7 +801,10 @@ class LGACPacketHandler:
                     self.command_queue.task_done()
                     continue
                 
-                assert isinstance(aircon_cmd, Aircon.Info)
+                if not isinstance(aircon_cmd, Aircon.Info):
+                    self.log.warning(f"Invalid command object in queue for {room_str}: {type(aircon_cmd)}")
+                    self.command_queue.task_done()
+                    continue
                 self.log.info(
                     f"[RS485 Priority Write] Immediate command execution for 에어컨 #{aircon_no} ({room_str}) -> "
                     f"Set Temp: {aircon_cmd.target_temp}C, Action: {aircon_cmd.action}, Mode: {aircon_cmd.opmode}, Fan: {aircon_cmd.fanmode}, Swing: {aircon_cmd.fanmove}"

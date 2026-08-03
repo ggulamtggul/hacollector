@@ -184,7 +184,8 @@ class Discovery:
     def discovery_aircon(self, remove: bool, enabled_device: list | None = None) -> None:
         from classes.aircon import Aircon
 
-        assert isinstance(enabled_device, list)
+        if not isinstance(enabled_device, list):
+            return
         for room_aircon in enabled_device:
             if isinstance(room_aircon, Aircon):
                 room_name = room_aircon.room_name
