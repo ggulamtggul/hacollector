@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.5.0-dev"   # 5가지 버그 수정: 제어 후 상태 동기화, calc_temp 엣지케이스, 파이프온도 누락, MQTT IndexError, 데드코드 제거
+SW_VERSION          = "1.5.1-dev"   # 데드 코드 정리 및 set_detail_mode 불필요한 비트마스크 제거
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name

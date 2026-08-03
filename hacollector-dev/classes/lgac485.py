@@ -192,7 +192,7 @@ class LGACPacket:
 
         fan_speed = self.get_lgac_fanspeed_data(self.str_fanmode)
 
-        self.current_mode = mode | (fan_speed << 4) & 0xf0
+        self.current_mode = mode | (fan_speed << 4)
 
     def __repr__(self) -> str:
         return (
@@ -227,8 +227,6 @@ class LGACPacketHandler:
         self.name                       = config.aircon_devicename if config is not None else 'TestAircon'
         self.enabled_device_list: list  = []
         self.aircon: list               = []
-        self.type                       = None
-        self.type                       = None
         # Initialize reverse mapping here to capture runtime config updates
         if config and config.rooms:
             self.system_room_aircon_rev = {v: k for k, v in config.rooms.items()}
@@ -245,7 +243,6 @@ class LGACPacketHandler:
                 cfg.PACKET_RESEND_INTERVAL_SEC
             )
         self.command_queue: asyncio.Queue = asyncio.Queue()
-        self._cmd_event: asyncio.Event = asyncio.Event()
         self.loop: asyncio.AbstractEventLoop = loop if loop else asyncio.get_running_loop()
         self.read_error_count           = 0
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
@@ -577,7 +574,6 @@ class LGACPacketHandler:
             # Do not exit, just let the next loop try to reconnect
             # await asyncio.sleep(5) # Optional delay
 
-        self.send_and_get_state: bool = True # Not used anymore but kept for safety if accessed externally, though unlikely.
 
         packet = LGACPacket(None)
         packet.make_new_packet(

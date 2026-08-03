@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1-dev (Development Addon)
+- **Cleanup**: Removed redundant `& 0xf0` bitmask in `set_detail_mode()` — operator precedence analysis confirmed no actual bug, but mask was unnecessary since fan_speed values (1-6) are already bounded.
+- **Cleanup**: Removed dead `_cmd_event` (asyncio.Event), duplicate `self.type = None`, and unused `self.send_and_get_state` flag.
+
 ## 1.5.0-dev (Development Addon)
 - **Fix**: After a successful HA control write, call `_update_device_state()` to sync local device object state and prevent spurious `[Status Changed]` logs on next scan.
 - **Fix**: `calc_temp(0)` now returns `0.0` instead of `54.0°C` when sensor data is absent (`num=0`).
