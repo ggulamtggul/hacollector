@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.9-dev (Development Addon)
+- **Fix**: Fixed missing local state assignment for `fanmove` (Swing mode) and `fanmode` (Fan speed) in `_update_device_state`, ensuring swing and fan mode changes are preserved and properly logged.
+
 ## 1.4.8-dev (Development Addon)
 - **Refactor**: Replaced legacy `assert` statements with defensive null checks and explicit type verification across socket and packet parsing classes to improve runtime stability.
 

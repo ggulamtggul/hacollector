@@ -282,6 +282,10 @@ class LGACPacketHandler:
             changed.append(f"TargetTemp: {device_obj.target_temp}C -> {info.target_temp}C")
         if round(device_obj.current_temp, 1) != round(info.cur_temp, 1):
             changed.append(f"RoomTemp: {device_obj.current_temp}C -> {info.cur_temp}C")
+        if device_obj.fanmove != info.fanmove:
+            changed.append(f"Swing: {device_obj.fanmove or 'fixed'} -> {info.fanmove}")
+        if device_obj.fanmode != info.fanmode:
+            changed.append(f"FanMode: {device_obj.fanmode or 'silent'} -> {info.fanmode}")
 
         if changed and device_obj.action != '':
             tag = "[Status Changed (Intercepted)]" if is_intercepted else "[Status Changed]"
@@ -292,6 +296,8 @@ class LGACPacketHandler:
         device_obj.opmode = info.opmode
         device_obj.target_temp = info.target_temp
         device_obj.current_temp = info.cur_temp
+        device_obj.fanmove = info.fanmove
+        device_obj.fanmode = info.fanmode
         device_obj.pipe1_temp = info.pipe1_temp
         device_obj.pipe2_temp = info.pipe2_temp
         device_obj.outdoor_temp = info.outdoor_temp
