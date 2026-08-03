@@ -47,7 +47,6 @@ class MainConfig:
         lgac_server         = os.getenv('LGAIRCON_SERVER_IP')
         lgac_port           = os.getenv('LGAIRCON_SERVER_PORT')
         log_level           = os.getenv('CONF_LOGLEVEL')
-        temperature_adjust  = os.getenv('TEMPERATURE_ADJUST')
 
         logger = logging.getLogger("MainConfig")
         
@@ -69,8 +68,6 @@ class MainConfig:
             
         if log_level:
             self.log_level = log_level
-        if temperature_adjust:
-            cfg.TEMPERATURE_ADJUST = float(temperature_adjust)
             
         # 온도 설정
         env_min_temp = os.getenv('MIN_TEMP')

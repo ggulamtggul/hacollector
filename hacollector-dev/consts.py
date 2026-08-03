@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.4.9-dev"   # Swing(fanmove) 및 FanSpeed(fanmode) 객체 상태 동기화 누락 수정 버전
+SW_VERSION          = "1.5.0-dev"   # 5가지 버그 수정: 제어 후 상태 동기화, calc_temp 엣지케이스, 파이프온도 누락, MQTT IndexError, 데드코드 제거
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name

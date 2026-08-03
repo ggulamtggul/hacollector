@@ -404,7 +404,7 @@ class MqttHandler:
             rcv_payload = msg.payload.decode()
             
             # HA 관리 명령 처리 (restart, remove 등)
-            if 'config' in rcv_topic and rcv_topic[3] == 'restart':
+            if len(rcv_topic) > 3 and 'config' in rcv_topic and rcv_topic[3] == 'restart':
                  # Schedule safe restart
                  asyncio.run_coroutine_threadsafe(self.homeassistant_device_discovery(), self.loop)
                  return

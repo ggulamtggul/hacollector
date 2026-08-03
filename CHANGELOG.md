@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0-dev (Development Addon)
+- **Fix**: After a successful HA control write, call `_update_device_state()` to sync local device object state and prevent spurious `[Status Changed]` logs on next scan.
+- **Fix**: `calc_temp(0)` now returns `0.0` instead of `54.0°C` when sensor data is absent (`num=0`).
+- **Fix**: `async_safe_flush_buffers` was missing `pipe1_temp`, `pipe2_temp`, `outdoor_temp` in `Aircon.Info` construction, causing sensor values to reset to `0.0` on flush.
+- **Fix**: Added `len(rcv_topic) > 3` guard before `rcv_topic[3]` index access in `on_message` to prevent `IndexError` on short MQTT topics.
+- **Cleanup**: Removed unused `TEMPERATURE_ADJUST` dead code from `config.py` and `appconf.py`.
+
 ## 1.4.9-dev (Development Addon)
 - **Fix**: Fixed missing local state assignment for `fanmove` (Swing mode) and `fanmode` (Fan speed) in `_update_device_state`, ensuring swing and fan mode changes are preserved and properly logged.
 

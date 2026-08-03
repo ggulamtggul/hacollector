@@ -164,7 +164,7 @@ class LGACPacket:
         # LGAP protocol formula: (192 - raw) / 3.0 for precise temperature
         if 0 < num < 192:
             return round((192.0 - num) / 3.0, 1)
-        return round(54.0 - num / 4, 2)
+        return 0.0  # 0x00 = no sensor data, return 0.0 instead of spurious 54°C
 
     def get_detail_mode(self) -> None:
         self.str_action = self.parse_lgac_action(self.action)
@@ -357,7 +357,10 @@ class LGACPacketHandler:
                             other_packet.str_fanmove,
                             other_packet.str_fanmode,
                             other_packet.current_temp,
-                            other_packet.set_temp
+                            other_packet.set_temp,
+                            other_packet.pipe1_temp,
+                            other_packet.pipe2_temp,
+                            other_packet.outdoor_temp
                         )
                         self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
                 
@@ -817,7 +820,12 @@ class LGACPacketHandler:
                 )
                 aircon_info = await self.async_set_current_mode(aircon_no, aircon_cmd)
                 if aircon_info:
-                    self.notify_to_homeassistant(DEVICE_AIRCON, room_str, aircon_info)
+                    # Sync local device object state after successful write
+                    device_obj = self.get_aircon(room_str)
+                    if device_obj:
+                        self._update_device_state(device_obj, aircon_no, aircon_info, is_intercepted=False)
+                    else:
+                        self.notify_to_homeassistant(DEVICE_AIRCON, room_str, aircon_info)
                 self.command_queue.task_done()
             except asyncio.CancelledError:
                 break
