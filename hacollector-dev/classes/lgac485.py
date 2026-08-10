@@ -284,7 +284,7 @@ class LGACPacketHandler:
         if device_obj.fanmode != info.fanmode:
             changed.append(f"FanMode: {device_obj.fanmode or 'silent'} -> {info.fanmode}")
 
-        if changed and device_obj.action != '':
+        if changed:
             tag = "[Status Changed (Intercepted)]" if is_intercepted else "[Status Changed]"
             self.log.info(f"{tag} '{device_obj.room_name}' (ID: 0x{id:02x}) updated: " + " | ".join(changed))
 

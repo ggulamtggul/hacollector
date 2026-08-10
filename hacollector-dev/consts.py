@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.5.1-dev"   # 데드 코드 정리 및 set_detail_mode 불필요한 비트마스크 제거
+SW_VERSION          = "1.5.2-dev"   # HA 재연결 시 상태 강제 동기화 및 MQTT state retain=True 적용 버전
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name

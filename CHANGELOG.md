@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.2-dev (Development Addon)
+- **Fix**: Implemented `retain=True` on MQTT state topics and added automatic force state refresh on Home Assistant discovery/reconnect (`homeassistant/status` = `online`) to resolve UI desync issues where aircon state remained stuck in ON after offline manual power-off.
+- **Log**: Enhanced `[Status Changed]` logging to reliably capture state transitions from initial startup.
+
 ## 1.5.1-dev (Development Addon)
 - **Cleanup**: Removed redundant `& 0xf0` bitmask in `set_detail_mode()` — operator precedence analysis confirmed no actual bug, but mask was unnecessary since fan_speed values (1-6) are already bounded.
 - **Cleanup**: Removed dead `_cmd_event` (asyncio.Event), duplicate `self.type = None`, and unused `self.send_and_get_state` flag.
