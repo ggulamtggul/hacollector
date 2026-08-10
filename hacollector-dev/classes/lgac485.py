@@ -286,7 +286,16 @@ class LGACPacketHandler:
 
         if changed:
             tag = "[Status Changed (Intercepted)]" if is_intercepted else "[Status Changed]"
-            self.log.info(f"{tag} '{device_obj.room_name}' (ID: 0x{id:02x}) updated: " + " | ".join(changed))
+            state_summary = (
+                f"[Power: {info.action}, Mode: {info.opmode}, TargetTemp: {info.target_temp}C, "
+                f"RoomTemp: {info.cur_temp:.1f}C, Fan: {info.fanmode}, Swing: {info.fanmove}]"
+            )
+            raw_hex_str = f" | Packet: {info.raw_packet}" if info.raw_packet else ""
+            self.log.info(
+                f"{tag} '{device_obj.room_name}' (ID: 0x{id:02x}) updated: "
+                + " | ".join(changed)
+                + f" {state_summary}{raw_hex_str}"
+            )
 
         # Update local device object state to prevent redundant logging
         device_obj.action = info.action
@@ -357,7 +366,8 @@ class LGACPacketHandler:
                             other_packet.set_temp,
                             other_packet.pipe1_temp,
                             other_packet.pipe2_temp,
-                            other_packet.outdoor_temp
+                            other_packet.outdoor_temp,
+                            raw_packet=possible_packet.hex()
                         )
                         self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
                 
@@ -540,7 +550,8 @@ class LGACPacketHandler:
                                     other_packet.set_temp,
                                     other_packet.pipe1_temp,
                                     other_packet.pipe2_temp,
-                                    other_packet.outdoor_temp
+                                    other_packet.outdoor_temp,
+                                    raw_packet=possible_packet.hex()
                                 )
                                 self.log.info(f"[Packet Hunter] ID Mismatch. Intercepting for room '{other_room}' (ID: 0x{packet_id:02x}) -> Power: {other_info.action}, Temp: {other_info.cur_temp}")
                                 self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
@@ -614,7 +625,8 @@ class LGACPacketHandler:
                         new_packet.set_temp,
                         new_packet.pipe1_temp,
                         new_packet.pipe2_temp,
-                        new_packet.outdoor_temp
+                        new_packet.outdoor_temp,
+                        raw_packet=read_packet.hex()
                     )
                     self.read_error_count = 0
                     if airconset.action != PAYLOAD_STATUS:

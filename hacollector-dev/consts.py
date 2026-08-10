@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.5.2-dev"   # HA 재연결 시 상태 강제 동기화 및 MQTT state retain=True 적용 버전
+SW_VERSION          = "1.5.3-dev"   # [Status Changed] 로그에 전체 기기 상태 요약 및 RAW 패킷 Hex 정보 표시 추가 버전
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name

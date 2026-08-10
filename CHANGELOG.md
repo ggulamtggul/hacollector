@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.3-dev (Development Addon)
+- **Log**: Enhanced `[Status Changed]` logs to display complete device state summary (Power, Mode, TargetTemp, RoomTemp, Fan, Swing) alongside raw RS485 packet hex data for better diagnostic visibility.
+
 ## 1.5.2-dev (Development Addon)
 - **Fix**: Implemented `retain=True` on MQTT state topics and added automatic force state refresh on Home Assistant discovery/reconnect (`homeassistant/status` = `online`) to resolve UI desync issues where aircon state remained stuck in ON after offline manual power-off.
 - **Log**: Enhanced `[Status Changed]` logging to reliably capture state transitions from initial startup.

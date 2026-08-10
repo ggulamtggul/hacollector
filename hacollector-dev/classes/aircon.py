@@ -23,6 +23,7 @@ class Aircon:
         pipe1_temp: float = 0.0
         pipe2_temp: float = 0.0
         outdoor_temp: float = 0.0
+        raw_packet: str = ''
 
     def __init__(self, room_name: str = '') -> None:
         self.scan = Aircon.ScanInfo()
