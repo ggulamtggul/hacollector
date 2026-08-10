@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.5-dev (Development Addon)
+- **Cleanup**: Removed unsafe `'status' -> 'on'` promotion guard from `handle_aircon_mqtt_message()`. The guard was added as a defense-in-depth measure but could cause unintended AC power-on when target temp/fan/swing commands arrive while the device is OFF and cached action happens to be `'status'`. The primary MSB masking fix in `parse_lgac_action()` (`inbyte & 0x7f`) is sufficient and correct on its own.
+
 ## 1.5.4-dev (Development Addon)
 - **Fix (Critical)**: Fixed LG RS485 action byte MSB flag (`0x80`) misparse that caused target temperature changes to be silently ignored. LG units respond with `0x83` (ON with MSB set) instead of plain `0x03` (ON) in periodic status packets, which was being parsed as `'status'` — causing subsequent control commands to send RS485 action `0x01` (status query) instead of `0x03` (ON command), so the device silently rejected any temperature change. Fixed by masking the MSB in `parse_lgac_action()` (`inbyte & 0x7f`).
 
