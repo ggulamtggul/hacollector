@@ -444,9 +444,6 @@ class LGACPacketHandler:
                     fanmove_str = PAYLOAD_SWING
                 else:
                     fanmove_str = PAYLOAD_FIXED
-                # Safety guard: promote 'status' to 'on'
-                if action_str == PAYLOAD_STATUS:
-                    action_str = PAYLOAD_ON
             elif cmd_str == MQTT_FAN_MODE:
                 if payload in [PAYLOAD_LOW, PAYLOAD_MEDIUM, PAYLOAD_HIGH, PAYLOAD_SILENT, PAYLOAD_AUTO, PAYLOAD_POWER]:
                     fanmode_str = payload
@@ -454,15 +451,8 @@ class LGACPacketHandler:
                     fanmode_str = PAYLOAD_OFF
                 else:
                     fanmode_str = PAYLOAD_LOW
-                # Safety guard: promote 'status' to 'on'
-                if action_str == PAYLOAD_STATUS:
-                    action_str = PAYLOAD_ON
             elif cmd_str == MQTT_TARGET_TEMP:
                 target_temp = int(float(payload))
-                # Safety guard: if temp/fan/swing only command, but cached action is 'status'
-                # (due to LG MSB flag misparse), promote to 'on' to ensure a real control packet is sent.
-                if action_str == PAYLOAD_STATUS:
-                    action_str = PAYLOAD_ON
 
             # 객체 상태 동기화
             aircon.action = action_str

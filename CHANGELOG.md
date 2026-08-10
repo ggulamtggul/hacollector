@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.5.4-dev (Development Addon)
-- **Fix (Critical)**: Fixed LG RS485 action byte MSB flag (`0x80`) misparse that caused target temperature changes to be silently ignored. LG units respond with `0x83` (ON + MSB) instead of `0x03` (ON), which was being parsed as `'status'` — causing control commands to send RS485 action `0x01` (status query) instead of `0x03` (ON command), so the device rejected any temperature change. Fixed by masking the MSB in `parse_lgac_action()` (`inbyte & 0x7f`) and adding a safety guard in `handle_aircon_mqtt_message()` to promote cached `'status'` action to `'on'` on temp/fan/swing-only commands.
+- **Fix (Critical)**: Fixed LG RS485 action byte MSB flag (`0x80`) misparse that caused target temperature changes to be silently ignored. LG units respond with `0x83` (ON with MSB set) instead of plain `0x03` (ON) in periodic status packets, which was being parsed as `'status'` — causing subsequent control commands to send RS485 action `0x01` (status query) instead of `0x03` (ON command), so the device silently rejected any temperature change. Fixed by masking the MSB in `parse_lgac_action()` (`inbyte & 0x7f`).
 
 ## 1.5.3-dev (Development Addon)
 - **Log**: Enhanced `[Status Changed]` logs to display complete device state summary (Power, Mode, TargetTemp, RoomTemp, Fan, Swing) alongside raw RS485 packet hex data for better diagnostic visibility.
