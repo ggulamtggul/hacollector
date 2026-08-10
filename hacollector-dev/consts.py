@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.5.3-dev"   # [Status Changed] 로그에 전체 기기 상태 요약 및 RAW 패킷 Hex 정보 표시 추가 버전
+SW_VERSION          = "1.5.4-dev"   # Fix: LG RS485 action byte MSB(0x80) masking to correctly parse 0x83(ON) and prevent target temp changes from being silently ignored
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name

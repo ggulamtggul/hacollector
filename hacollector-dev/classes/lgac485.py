@@ -132,7 +132,10 @@ class LGACPacket:
         return ret_int if ret_int is not None else 0
 
     def parse_lgac_action(self, inbyte: int) -> str:
-        ret_enum = self.LGAC_ACTION.get(inbyte)
+        # Mask out the MSB (0x80) which LG units set on status packets when powered ON.
+        # e.g. 0x83 (ON + MSB flag) -> 0x03 (ON), 0x82 (OFF + MSB flag) -> 0x02 (OFF)
+        masked = inbyte & 0x7f
+        ret_enum = self.LGAC_ACTION.get(masked)
         return ret_enum if ret_enum is not None else ''
 
     def get_lgac_mode_data(self, id: str) -> int:
@@ -441,6 +444,9 @@ class LGACPacketHandler:
                     fanmove_str = PAYLOAD_SWING
                 else:
                     fanmove_str = PAYLOAD_FIXED
+                # Safety guard: promote 'status' to 'on'
+                if action_str == PAYLOAD_STATUS:
+                    action_str = PAYLOAD_ON
             elif cmd_str == MQTT_FAN_MODE:
                 if payload in [PAYLOAD_LOW, PAYLOAD_MEDIUM, PAYLOAD_HIGH, PAYLOAD_SILENT, PAYLOAD_AUTO, PAYLOAD_POWER]:
                     fanmode_str = payload
@@ -448,8 +454,15 @@ class LGACPacketHandler:
                     fanmode_str = PAYLOAD_OFF
                 else:
                     fanmode_str = PAYLOAD_LOW
+                # Safety guard: promote 'status' to 'on'
+                if action_str == PAYLOAD_STATUS:
+                    action_str = PAYLOAD_ON
             elif cmd_str == MQTT_TARGET_TEMP:
                 target_temp = int(float(payload))
+                # Safety guard: if temp/fan/swing only command, but cached action is 'status'
+                # (due to LG MSB flag misparse), promote to 'on' to ensure a real control packet is sent.
+                if action_str == PAYLOAD_STATUS:
+                    action_str = PAYLOAD_ON
 
             # 객체 상태 동기화
             aircon.action = action_str
