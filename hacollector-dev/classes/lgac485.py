@@ -320,11 +320,11 @@ class LGACPacketHandler:
 
     async def async_safe_flush_buffers(self):
         """
-        소켓 커널 버퍼와 수신 버퍼에 잔존하는 데이터를 읽어내고,
-        그중 유효한 패킷들은 가로채 파싱하여 즉시 각 에어컨의 상태를 업데이트합니다.
-        그 후 버퍼를 비워 찌꺼기 패킷 혼선을 막습니다.
+        소켓 커널 버퍼와 수신 버퍼에 잔존하는 옛날 데이터를 빠르게 읽어내고,
+        그중 유효한 패킷들은 가로채 파싱하여 즉시 각 에어컨의 상태 및 scan.tick을 갱신합니다.
+        그 후 버퍼를 깨끗이 비워 타겟 쿼리 응답과의 혼선 및 타임아웃 지연을 방지합니다.
         """
-        # 1. 소켓 커널 버퍼의 모든 데이터를 빠르게 읽어와 _recv_buffer에 누적
+        # 1. 소켓 커널 버퍼의 모든 잔여 데이터를 빠르게 읽어와 _recv_buffer에 누적
         if self.comm.reader:
             while True:
                 try:
@@ -332,12 +332,11 @@ class LGACPacketHandler:
                     if not data:
                         break
                     self._recv_buffer.extend(data)
-                except asyncio.TimeoutError:
-                    break
-                except Exception:
+                except (asyncio.TimeoutError, Exception):
                     break
 
         # 2. 수집된 버퍼에서 유효 패킷(체크섬 통과)을 모두 추출하여 실시간 동기화 진행
+        now = time.monotonic()
         while len(self._recv_buffer) > 0:
             try:
                 header_idx = self._recv_buffer.index(0x10)
@@ -355,7 +354,7 @@ class LGACPacketHandler:
             if self.is_checksum_ok(possible_packet):
                 packet_id = possible_packet[4]
                 
-                # 타겟 외 패킷 가로채기 파싱 진행
+                # 잔여 유효 패킷 가로채기 파싱 진행
                 other_packet = LGACPacket(possible_packet)
                 other_room = self.rooms.get(f"{packet_id:02x}")
                 if not other_room:
@@ -376,12 +375,17 @@ class LGACPacketHandler:
                             other_packet.outdoor_temp,
                             raw_packet=possible_packet.hex()
                         )
+                        self.log.debug(f"[Flush Intercept] Pre-send buffer drain intercepted for '{other_room}' (ID: 0x{packet_id:02x})")
                         self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
+                        other_device.scan.tick = now # 방금 상태를 읽었으므로 불필요한 즉시 재폴링 방지
                 
                 # 추출된 유효 패킷 버퍼에서 삭제
                 del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
             else:
                 del self._recv_buffer[0:1]
+
+        # 잔여 찌꺼기 버퍼 완전 클리어
+        self._recv_buffer.clear()
 
     def prepare_enabled(self):
         for r_id, r_name in self.rooms.items():
@@ -489,19 +493,19 @@ class LGACPacketHandler:
         except Exception as e:
             self.log.error(f"[From HA]Error [{e}] {topic} = {payload}")
 
-    async def async_read_packet(self, target_groupandid: int | None = None, timeout: float = 2.0) -> bytes | None:
+    async def async_read_packet(self, target_groupandid: int | None = None, timeout: float = 0.8) -> bytes | None:
         """
         Reads from the stream and hunts for a valid packet properly.
         Handles fragmentation (split packets) and coalescing (merged packets).
         If target_groupandid is specified, other valid packets will be intercepted and parsed.
         """
         start_time = time.monotonic()
+        now = start_time
         
         while (time.monotonic() - start_time) < timeout:
             # 1. Read available data and append to buffer
             new_data = await self.comm.async_read_stream(2048)
             if new_data:
-                # self.log.log(f"RX Raw: {new_data.hex()}", Color.Magenta, ColorLog.Level.INFO)
                 self._recv_buffer.extend(new_data)
                 
                 # [Fix] Prevent Buffer Overflow (Memory Leak Protection)
@@ -515,10 +519,7 @@ class LGACPacketHandler:
                 try:
                     header_idx = self._recv_buffer.index(0x10)
                 except ValueError:
-                    # No header(0x10) in buffer: trash everything to clear garbage
-                    # self.log.log(f"No header(0x10) in buffer: {self._recv_buffer.hex()}", Color.Yellow, ColorLog.Level.DEBUG)
                     self._recv_buffer.clear()
-                    # Wait for more data
                     break
 
                 # Discard garbage before the header
@@ -527,19 +528,17 @@ class LGACPacketHandler:
                 
                 # Check if we have enough data for a full packet
                 if len(self._recv_buffer) < LGACPacket._RESPONSE_PACKET_SIZE:
-                    # Not enough data yet, break inner loop to read more
                     break
                 
                 # We have at least 16 bytes starting with 0x10. Check Checksum.
                 possible_packet = self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
                 if self.is_checksum_ok(possible_packet):
-                    # Valid Packet Found!
                     packet_id = possible_packet[4]
                     target_str = f"0x{target_groupandid:02x}" if target_groupandid is not None else "None"
                     self.log.debug(f"[Packet Hunter] Found valid packet. ID: 0x{packet_id:02x} (Target: {target_str})")
                     
                     if target_groupandid is not None and packet_id != target_groupandid:
-                        # 체크섬은 맞지만 대기 중인 타겟 ID와 다를 때: 가로채서 즉시 상태 업데이트 진행!
+                        # 체크섬은 맞지만 대기 중인 타겟 ID와 다를 때: 가로채서 즉시 상태 및 scan.tick 업데이트 진행!
                         other_packet = LGACPacket(possible_packet)
                         other_room = self.rooms.get(f"{packet_id:02x}")
                         if not other_room:
@@ -562,6 +561,7 @@ class LGACPacketHandler:
                                 )
                                 self.log.info(f"[Packet Hunter] ID Mismatch. Intercepting for room '{other_room}' (ID: 0x{packet_id:02x}) -> Power: {other_info.action}, Temp: {other_info.cur_temp}")
                                 self._update_device_state(other_device, packet_id, other_info, is_intercepted=True)
+                                other_device.scan.tick = time.monotonic() # 가로챈 방의 폴링 주기 갱신하여 중복 폴링 방지
                             else:
                                 self.log.debug(f"[Packet Hunter] Intercepted unregistered ID 0x{packet_id:02x}")
                         
@@ -575,13 +575,12 @@ class LGACPacketHandler:
                     del self._recv_buffer[:LGACPacket._RESPONSE_PACKET_SIZE]
                     return bytes(possible_packet)
                 else:
-                    # Invalid Checksum. This 0x10 was a false positive or corrupted.
-                    # Discard just this one byte (0x10) and continue searching from the next byte
+                    # Invalid Checksum. Discard just this one byte (0x10)
                     del self._recv_buffer[0:1]
                     continue
             
             # Small sleep to prevent tight loop if no data
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.03)
             
         return None
 
@@ -589,9 +588,6 @@ class LGACPacketHandler:
         async def handle_max_read_error():
             self.log.warning("Too many read errors. Closing socket to force reconnection...")
             await self.comm.close_async_socket()
-            # Do not exit, just let the next loop try to reconnect
-            # await asyncio.sleep(5) # Optional delay
-
 
         packet = LGACPacket(None)
         packet.make_new_packet(
@@ -600,14 +596,13 @@ class LGACPacketHandler:
         )
 
         send_packet = packet.make_send_packet()
-
         ret: Aircon.Info | None = None
-        # need some wait
+
         try:
             await self.comm.connect_async_socket()
             
-            # [Safe Flush 비활성화] 송신 전 소켓 버퍼 비우기가 유효 응답 패킷을 먼저 소모시켜 타임아웃을 유발하는 부작용을 방지하기 위해 제거합니다.
-            # await self.async_safe_flush_buffers()
+            # [Safe Buffer Drain] 송신 전 버퍼의 잔여 유효 패킷을 가로채고 버퍼를 깨끗이 비워 타겟 응답 엇갈림 방지
+            await self.async_safe_flush_buffers()
             
             ok: bool = await self.comm.async_write_one_chunk(send_packet)
             if ok:
@@ -615,7 +610,7 @@ class LGACPacketHandler:
                 
                 # 쿼리한 타겟 에어컨 ID 정보
                 target_groupandid = (group_no << 4) + id
-                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=1.5)
+                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=0.8)
                 
                 if read_packet:
                     self.log.debug(f"Read From LGAC ==> {read_packet.hex()}")
@@ -639,7 +634,7 @@ class LGACPacketHandler:
                     if airconset.action != PAYLOAD_STATUS:
                         self.log.info(f"[RS485 Success] 에어컨 #{id} (Group {group_no}) responded OK. State synced.")
                 else:
-                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within 1.5s")
+                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within 0.8s")
                     if count_error:
                         if airconset.action != PAYLOAD_STATUS:
                             self.log.warning(f"[RS485 Fail] 에어컨 #{id} (Group {group_no}) write failed (Timeout/No Response).")
@@ -654,8 +649,16 @@ class LGACPacketHandler:
                             self.read_error_count = 0
                             await handle_max_read_error()
             else:
-                self.log.warning(f"Write to LGAC FAIL!{send_packet.hex()}")
+                self.log.warning(f"Write to LGAC FAIL! {send_packet.hex()}")
                 if count_error:
+                    await handle_max_read_error()
+        except ConnectionError as ce:
+            # Backoff cooldown in progress or connection failed
+            self.log.debug(f"[TCP Connection] {ce}")
+            if count_error:
+                self.read_error_count += 1
+                if self.read_error_count > MAX_READ_ERROR_RETRY:
+                    self.read_error_count = 0
                     await handle_max_read_error()
         except Exception as e:
             self.log.critical(f"Something wrong in Write and read Aircon({e})")

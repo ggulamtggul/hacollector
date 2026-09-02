@@ -29,6 +29,8 @@ class TCPComm:
         self.writer: Optional[asyncio.StreamWriter] = None
         self._conn_lock: asyncio.Lock   = asyncio.Lock()
         self._closing: bool             = False
+        self._consecutive_failures: int = 0
+        self._next_connect_allowed_time: float = 0.0
 
     @classmethod
     async def async_init(cls, server: str, port: int, buffer_size: int = 2048, interval: float = 0.0):
@@ -52,37 +54,56 @@ class TCPComm:
     async def connect_async_socket(self) -> None:
         """
         Ensure we have a connected reader/writer. This is safe to call often.
+        Applies exponential backoff cooldown on consecutive connection failures
+        to prevent tight reconnect loops and CPU / log flooding when EW11 is offline.
         """
         if self.writer is not None and not self.writer.is_closing():
             return
+
+        now = time.monotonic()
+        if now < self._next_connect_allowed_time:
+            remaining = self._next_connect_allowed_time - now
+            raise ConnectionError(f"Connection cooldown active ({remaining:.1f}s remaining). Skipping reconnect attempt to {self.server}:{self.port}")
 
         async with self._conn_lock:
             if self.writer is not None and not self.writer.is_closing():
                 return
 
+            now = time.monotonic()
+            if now < self._next_connect_allowed_time:
+                remaining = self._next_connect_allowed_time - now
+                raise ConnectionError(f"Connection cooldown active ({remaining:.1f}s remaining). Skipping reconnect attempt to {self.server}:{self.port}")
+
             logger = logging.getLogger("TCPComm")
-            logger.info(f"Connecting to {self.server}:{self.port} ...")
+            logger.info(f"Connecting to {self.server}:{self.port} ... (Failures: {self._consecutive_failures})")
 
-            # Try a couple of times before giving up to caller
             last_err: Optional[Exception] = None
-            for attempt in range(1, 4):
-                try:
-                    reader, writer = await asyncio.open_connection(host=self.server, port=self.port)
-                    # enable TCP keepalive
-                    sock = writer.get_extra_info("socket")
-                    if isinstance(sock, socket.socket):
-                        await self._enable_keepalive(sock)
-                        sock.settimeout(None)
-                    self.reader, self.writer = reader, writer
-                    self.connection_reset = False
-                    logger.info("Connected.")
-                    return
-                except Exception as e:
-                    last_err = e
-                    logger.warning(f"Connect attempt {attempt} failed: {e}")
-                    await asyncio.sleep(min(1.0 * attempt, 3.0))
+            try:
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(host=self.server, port=self.port),
+                    timeout=3.0
+                )
+                sock = writer.get_extra_info("socket")
+                if isinstance(sock, socket.socket):
+                    await self._enable_keepalive(sock)
+                    sock.settimeout(None)
+                self.reader, self.writer = reader, writer
+                self.connection_reset = False
+                self._consecutive_failures = 0
+                self._next_connect_allowed_time = 0.0
+                logger.info(f"Successfully connected to {self.server}:{self.port}")
+                return
+            except Exception as e:
+                last_err = e
+                self._consecutive_failures += 1
+                # Exponential backoff: 2.0s, 3.0s, 4.5s, 6.7s, ... max 30s
+                backoff = min(2.0 * (1.5 ** min(self._consecutive_failures - 1, 6)), 30.0)
+                self._next_connect_allowed_time = time.monotonic() + backoff
+                logger.warning(
+                    f"Connect failed (Attempt #{self._consecutive_failures}): {e}. "
+                    f"Backoff cooldown set to {backoff:.1f}s before next attempt."
+                )
 
-            # bubble up last error
             if last_err is None:
                 raise ConnectionError(f"Failed to connect to {self.server}:{self.port}")
             raise last_err

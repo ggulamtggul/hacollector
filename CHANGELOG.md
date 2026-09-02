@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.7-dev (Development Addon)
+- **Fix (Stability)**: Implemented exponential backoff and connection cooldown in `TCPComm` to prevent tight reconnect loops and CPU/log flooding when EW11 or TCP gateway is unreachable.
+- **Fix (Performance)**: Added smart pre-send buffer draining in `async_safe_flush_buffers()` to process and sync residual packets before queries, eliminating packet mismatch stalls.
+- **Optimization**: Reduced RS485 query response timeout from 1.5s to 0.8s and added `scan.tick` synchronization upon packet interception, drastically reducing polling latency and preventing UI freezes.
+
 ## 1.5.6-dev (Development Addon)
 - **Feature**: Implemented temperature jitter filtering with a 2-step consecutive confirmation debounce algorithm in `filter_room_temp()`. Suppresses rapid 0.3°C oscillations (e.g., `30.0°C <-> 30.3°C` sensor ADC boundary noise) while preserving immediate fast-path updates for significant temperature jumps (>= 1.0°C), drastically reducing redundant MQTT state publishes and log noise.
 

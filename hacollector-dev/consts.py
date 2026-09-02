@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.5.6-dev"   # Temperature jitter filter with consecutive confirmation debounce
+SW_VERSION          = "1.5.7-dev"   # TCP exponential backoff cooldown & smart buffer drain timeout optimization
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name
