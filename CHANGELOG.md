@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.8-dev (Development Addon)
+- **Feature**: Dynamically bound the `rs485_timeout` add-on configuration option to the RS485 read packet handler (`self.rs485_timeout`) and updated default timeout to 0.8s for optimal response.
+
 ## 1.5.7-dev (Development Addon)
 - **Fix (Stability)**: Implemented exponential backoff and connection cooldown in `TCPComm` to prevent tight reconnect loops and CPU/log flooding when EW11 or TCP gateway is unreachable.
 - **Fix (Performance)**: Added smart pre-send buffer draining in `async_safe_flush_buffers()` to process and sync residual packets before queries, eliminating packet mismatch stalls.

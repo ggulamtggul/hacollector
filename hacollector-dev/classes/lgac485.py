@@ -251,6 +251,7 @@ class LGACPacketHandler:
         self._lock                      = asyncio.Lock() # Use Lock instead of boolean flag
         self.log                        = logging.getLogger(f"LGAC:{self.name}")
         self.scan_interval              = config.scan_interval if config else cfg.WALLPAD_SCAN_INTERVAL_TIME
+        self.rs485_timeout              = config.rs485_timeout if (config and hasattr(config, 'rs485_timeout')) else 0.8
         self._recv_buffer: bytearray    = bytearray()
         self.config = config
         self.notify_availability: Callable[[str, str], None] | None = None
@@ -610,7 +611,7 @@ class LGACPacketHandler:
                 
                 # 쿼리한 타겟 에어컨 ID 정보
                 target_groupandid = (group_no << 4) + id
-                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=0.8)
+                read_packet = await self.async_read_packet(target_groupandid=target_groupandid, timeout=self.rs485_timeout)
                 
                 if read_packet:
                     self.log.debug(f"Read From LGAC ==> {read_packet.hex()}")
@@ -634,7 +635,7 @@ class LGACPacketHandler:
                     if airconset.action != PAYLOAD_STATUS:
                         self.log.info(f"[RS485 Success] 에어컨 #{id} (Group {group_no}) responded OK. State synced.")
                 else:
-                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within 0.8s")
+                    self.log.warning(f"[RS485 Timeout] No response packet matching target ID 0x{target_groupandid:02x} within {self.rs485_timeout:.1f}s")
                     if count_error:
                         if airconset.action != PAYLOAD_STATUS:
                             self.log.warning(f"[RS485 Fail] 에어컨 #{id} (Group {group_no}) write failed (Timeout/No Response).")

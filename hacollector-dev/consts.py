@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.5.7-dev"   # TCP exponential backoff cooldown & smart buffer drain timeout optimization
+SW_VERSION          = "1.5.8-dev"   # Dynamically bound rs485_timeout configuration option to read packet handler
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name
