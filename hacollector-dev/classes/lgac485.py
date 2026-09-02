@@ -272,6 +272,10 @@ class LGACPacketHandler:
                 self.notify_availability(device_obj.room_name, status)
                 device_obj.last_availability_status = status
 
+        # Apply temperature filtering to suppress small oscillations (e.g. 30.0C <-> 30.3C)
+        filtered_room_temp = device_obj.filter_room_temp(info.cur_temp)
+        info.cur_temp = filtered_room_temp
+
         # Check for state changes (e.g. Remote Controller actions)
         changed = []
         if device_obj.action != info.action:
@@ -280,8 +284,8 @@ class LGACPacketHandler:
             changed.append(f"Mode: {device_obj.opmode or 'none'} -> {info.opmode}")
         if device_obj.target_temp != info.target_temp:
             changed.append(f"TargetTemp: {device_obj.target_temp}C -> {info.target_temp}C")
-        if round(device_obj.current_temp, 1) != round(info.cur_temp, 1):
-            changed.append(f"RoomTemp: {device_obj.current_temp}C -> {info.cur_temp}C")
+        if round(device_obj.current_temp, 1) != round(filtered_room_temp, 1):
+            changed.append(f"RoomTemp: {device_obj.current_temp}C -> {filtered_room_temp}C")
         if device_obj.fanmove != info.fanmove:
             changed.append(f"Swing: {device_obj.fanmove or 'fixed'} -> {info.fanmove}")
         if device_obj.fanmode != info.fanmode:
@@ -291,7 +295,7 @@ class LGACPacketHandler:
             tag = "[Status Changed (Intercepted)]" if is_intercepted else "[Status Changed]"
             state_summary = (
                 f"[Power: {info.action}, Mode: {info.opmode}, TargetTemp: {info.target_temp}C, "
-                f"RoomTemp: {info.cur_temp:.1f}C, Fan: {info.fanmode}, Swing: {info.fanmove}]"
+                f"RoomTemp: {filtered_room_temp:.1f}C, Fan: {info.fanmode}, Swing: {info.fanmove}]"
             )
             raw_hex_str = f" | Packet: {info.raw_packet}" if info.raw_packet else ""
             self.log.info(
@@ -304,7 +308,7 @@ class LGACPacketHandler:
         device_obj.action = info.action
         device_obj.opmode = info.opmode
         device_obj.target_temp = info.target_temp
-        device_obj.current_temp = info.cur_temp
+        device_obj.current_temp = filtered_room_temp
         device_obj.fanmove = info.fanmove
         device_obj.fanmode = info.fanmode
         device_obj.pipe1_temp = info.pipe1_temp

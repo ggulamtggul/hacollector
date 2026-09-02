@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.6-dev (Development Addon)
+- **Feature**: Implemented temperature jitter filtering with a 2-step consecutive confirmation debounce algorithm in `filter_room_temp()`. Suppresses rapid 0.3°C oscillations (e.g., `30.0°C <-> 30.3°C` sensor ADC boundary noise) while preserving immediate fast-path updates for significant temperature jumps (>= 1.0°C), drastically reducing redundant MQTT state publishes and log noise.
+
+## 1.5.5
+- **Official Release**: Promoted all stable dev branch improvements (v1.4.6-dev through v1.5.5-dev) to the official release.
+- **Fix (Critical)**: Fixed LG RS485 action byte MSB flag (`0x80`) misparse causing target temperature changes to be ignored.
+- **Fix**: Fixed UI desync on HA reconnect/discovery via MQTT `retain=True` and automatic force state sync.
+- **Fix**: Fixed sensor calculation edge case (`calc_temp(0)` -> `0.0`) and pipe temperature preservation on buffer flush.
+- **Fix**: Fixed missing local state assignment for swing mode and fan speed in `_update_device_state`.
+- **Fix (Stability)**: Resolved priority queue deadlocks and replaced `assert` statements with defensive null checks.
+- **Log**: Enhanced `[Status Changed]` logging with full device state summary and raw RS485 packet hex.
+
 ## 1.5.5-dev (Development Addon)
 - **Cleanup**: Removed unsafe `'status' -> 'on'` promotion guard from `handle_aircon_mqtt_message()`. The guard was added as a defense-in-depth measure but could cause unintended AC power-on when target temp/fan/swing commands arrive while the device is OFF and cached action happens to be `'status'`. The primary MSB masking fix in `parse_lgac_action()` (`inbyte & 0x7f`) is sufficient and correct on its own.
 

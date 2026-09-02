@@ -175,16 +175,17 @@ class Discovery:
             obs_topic = f'{cfg.HA_PREFIX}/sensor/{room_safe}_{obs}/config'
             results.append((obs_topic, {}))
 
-        # Cleanup Plasma Switch in Home Assistant
-        obs_plasma_topic = f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config'
-        results.append((obs_plasma_topic, {}))
+        # Cleanup Plasma Entities (binary_sensor and switch) in Home Assistant
+        results.append((f'{cfg.HA_PREFIX}/binary_sensor/{room_safe}_plasma/config', {}))
+        results.append((f'{cfg.HA_PREFIX}/switch/{room_safe}_plasma/config', {}))
 
         return results
 
     def discovery_aircon(self, remove: bool, enabled_device: list | None = None) -> None:
         from classes.aircon import Aircon
 
-        assert isinstance(enabled_device, list)
+        if not isinstance(enabled_device, list):
+            return
         for room_aircon in enabled_device:
             if isinstance(room_aircon, Aircon):
                 room_name = room_aircon.room_name
@@ -328,7 +329,7 @@ class MqttHandler:
                 # 1. Global Bridge Status
                 self.mqtt_client.publish(self.availability_topic, PAYLOAD_ONLINE, retain=True, qos=1)
                 
-                # 2. Per-Device Availability Initial Status
+                # 2. Per-Device Availability Initial Status & Force State Refresh
                 from classes.aircon import Aircon
                 for dev_name, enabled_device in self.enabled_list:
                     if dev_name == DeviceType.AIRCON: # Correctly compare Enum
@@ -337,8 +338,21 @@ class MqttHandler:
                          for room_aircon in enabled_device:
                             if isinstance(room_aircon, Aircon) and room_aircon.room_name:
                                 self.publish_availability(room_aircon.room_name, PAYLOAD_ONLINE)
+                                # Force Sync latest state to HA on Discovery/Reconnect
+                                info = Aircon.Info(
+                                    action=room_aircon.action,
+                                    opmode=room_aircon.opmode,
+                                    fanmove=room_aircon.fanmove,
+                                    fanmode=room_aircon.fanmode,
+                                    cur_temp=room_aircon.current_temp,
+                                    target_temp=room_aircon.target_temp,
+                                    pipe1_temp=room_aircon.pipe1_temp,
+                                    pipe2_temp=room_aircon.pipe2_temp,
+                                    outdoor_temp=room_aircon.outdoor_temp
+                                )
+                                self.change_aircon_status(DEVICE_AIRCON, room_aircon.room_name, info)
                 
-                logger.info(f"Sent Online Status to {self.availability_topic} and Devices")
+                logger.info(f"Sent Online Status & Synced Latest Device States to {self.availability_topic} and Devices")
 
         if self.start_discovery:
             self.start_discovery = False
@@ -350,7 +364,7 @@ class MqttHandler:
             if device == DEVICE_AIRCON:
                 prefix = cfg.CONF_AIRCON_DEVICE_NAME
                 topic = f'{prefix}/{cfg.HA_CLIMATE}/{room_safe}/{PAYLOAD_STATE}'
-                self.mqtt_client.publish(topic, json.dumps(value))
+                self.mqtt_client.publish(topic, json.dumps(value), retain=True)
     
     def change_aircon_status(self, dev_str: str, room_str: str, aircon_info: Aircon.Info):
         # 기존 로직 유지
@@ -403,7 +417,7 @@ class MqttHandler:
             rcv_payload = msg.payload.decode()
             
             # HA 관리 명령 처리 (restart, remove 등)
-            if 'config' in rcv_topic and rcv_topic[3] == 'restart':
+            if len(rcv_topic) > 3 and 'config' in rcv_topic and rcv_topic[3] == 'restart':
                  # Schedule safe restart
                  asyncio.run_coroutine_threadsafe(self.homeassistant_device_discovery(), self.loop)
                  return

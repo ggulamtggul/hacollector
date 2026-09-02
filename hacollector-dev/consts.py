@@ -4,7 +4,7 @@ from typing import NamedTuple
 # string constants
 
 # Version
-SW_VERSION          = "1.5.5-dev"   # Remove unsafe status->on guard: primary MSB masking fix in parse_lgac_action() is sufficient
+SW_VERSION          = "1.5.6-dev"   # Temperature jitter filter with consecutive confirmation debounce
 SW_VERSION_STRING   = f"RS485 Data Collector for Home Assistant. v{SW_VERSION} - Developed by ggulamtggul (Original by Bongdang)"
 
 # main service name
